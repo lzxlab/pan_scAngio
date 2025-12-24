@@ -984,26 +984,6 @@ total_p4<-ggarrange(box_p,Feature_P1,ncol=1,heights = c(1.5,1))
 total_p5<-ggarrange(total_p4,total_p3,ncol=2,nrow = 1,widths = c(1,1.5))
 
 total_p<-ggarrange(total_p5,total_p1,nrow = 2,heights = c(4.5,2.5))
-pdf("14.Figure/8.Figure_8.pdf",width = 12,height = 7)
-print(total_p)
-dev.off()
-
-
-box_p<-box_p2+box_p3+plot_layout(ncol=2,widths = c(1,1))
-total_p3<-Bev_gg_surv1$plot+Bev_gg_surv2$plot+Bev_gg_surv3$plot+Bev_gg_surv4$plot+
-  Bev_gg_surv1$table+Bev_gg_surv2$table+
-  Bev_gg_surv3$table+Bev_gg_surv4$table+
-  plot_layout(ncol=4,nrow = 2,heights = c(3,1))
-
-library(patchwork)
-total_p3<-Bev_gg_surv1$plot+Bev_gg_surv2$plot+
-  Bev_gg_surv1$table+Bev_gg_surv2$table+
-  plot_layout(ncol=2,nrow = 2,heights = c(3,1))
-total_p3<-ggarrange(mice_line_p1,PC_weight/plot_spacer(),total_p3,ncol=3,widths = c(0.65,0.45,1))
-total_p1<-ggarrange(box_p,netVisual_b2+netVisual_b1,widths = c(1,1.5))
-
-
-total_p<-ggarrange(total_p1,total_p3,nrow = 2,heights = c(2.5,4))
-pdf("14.Figure/5.Figure_5.pdf",width = 12,height = 6.5)
+pdf("14.Figure/5.Figure_5.pdf",width = 12,height = 7)
 print(total_p)
 dev.off()
