@@ -45,7 +45,7 @@ sub_sce2<-subset(sub_sce2,features=marker_list)
 combined<-merge(sub_sce1,sub_sce2)
 
 combined$Cluster<-factor(combined$Cluster,levels=c( "B"  ,   "Plasma",  "CD4_conv" ,"CD4_Treg", "CD8"  ,"MAIT",   "NK" ,   
-                                                    "DC" , "Mono"   , "Macro" ,"Mast" ,"NF", "CAF"   ,   "PVL",     "Endo" ,   "Epi"))
+                                                    "DC" , "Mono"   , "Macro" ,"Mast" ,"NF", "CAF"   ,   "PC",     "Endo" ,   "Epi"))
 
 tmp_table<-data.frame(Cluster=combined$Cluster,Type=combined$Type,sample_ID=combined$Sample_ID,num=1)
 tmp_table<-na.omit(tmp_table)
@@ -77,12 +77,12 @@ library(ggcorrplot2)
 cor_p1<-ggcorrplot(cor_value, method = "ellipse",type = "lower",p.mat = cor_test_mat, 
                    insig = "label_sig", sig.lvl = c(0.05, 0.01, 0.001),col = rev(c("#CA0020" ,"#F4A582", "#F7F7F7", "#92C5DE" ,"#0571B0")))
 
+cor_data<-cor_p1$data
+write.table(cor_data,"source_data_NC/Figure_3A.txt",sep = "\t",row.names = F,col.names = T)
 
 
-cell_pair_list<-list(c("PVL","Endo"),
-                     c("Endo","CD4_conv"),
-                     c("Endo","CD4_Treg"),
-                     c("Endo","CD8"))
+
+cell_pair_list<-list(c("PC","Endo"))
 
 for (i in 1:length(cell_pair_list)){
   cell_pair<-cell_pair_list[[i]]
@@ -138,16 +138,17 @@ for (i in 1:length(cell_pair_list)){
   assign(paste("p", i, sep = ""), p)
   print(p)
 }
-cor_p2<-p1+p2+p3+p4+plot_layout(ncol=2)
 cor_p2<-p1
 
+colnames(merged_table)<-c("Sample_ID","PC_percentage","Endo_percentage")
+write.table(merged_table,"source_data_NC/Figure_3B.txt",sep = "\t",row.names = F,col.names = T)
 
 
 
 
 combined1<-combined
 combined1$Cluster<-as.character(combined1$Cluster)
-combined1$Cluster[which(grepl("PVL",combined1$Cluster))]<-combined1$SubCluster[which(grepl("PVL",combined1$Cluster))]
+combined1$Cluster[which(grepl("PC",combined1$Cluster))]<-combined1$SubCluster[which(grepl("PC",combined1$Cluster))]
 
 tmp_table<-data.frame(Cluster=combined1$Cluster,Type=combined1$Type,sample_ID=combined1$Sample_ID,num=1)
 tmp_table<-na.omit(tmp_table)
@@ -163,10 +164,11 @@ sum_table$Cluster<-gsub("\\/","_",sum_table$Cluster)
 
 
 
-cell_pair_list<-list(c("PVL_C1_mPC-ACTG2","Endo"),
-                     c("PVL_C2_mPC-MYH11","Endo"),
-                     c("PVL_C3_imPC-CD36","Endo"),
-                     c("PVL_C4_imPC-MCAM","Endo"))
+cell_pair_list<-list(c("PC_C1_mPC-ACTG2","Endo"),
+                     c("PC_C2_mPC-MYH11","Endo"),
+                     c("PC_C3_imPC-CD36","Endo"),
+                     c("PC_C4_imPC-MCAM","Endo"))
+
 
 for (i in 1:length(cell_pair_list)){
   cell_pair<-cell_pair_list[[i]]
@@ -190,6 +192,8 @@ for (i in 1:length(cell_pair_list)){
   
   
   merged_table<-merge(CD8_tab,Neutro_tab,by="sample_ID")
+  
+
   
   cor.value<-cor(merged_table$per.x,merged_table$per.y)
   cor.value<-round(cor.value,2)
@@ -223,8 +227,6 @@ for (i in 1:length(cell_pair_list)){
   print(p)
 }
 cor_p3<-p1+p2+p3+p4+plot_layout(ncol=2)
-
-
 
 
 
@@ -264,13 +266,13 @@ cor_p4<-ggcorrplot(cor_value, method = "ellipse",type = "lower",p.mat = cor_test
                    insig = "label_sig", sig.lvl = c(0.05, 0.01, 0.001))
 
 
-cell_pair_list<-list(c("PVL","Tip_ECs"),
-                     c("PVL","Immature_ECs"),
-                     c("PVL","Artery_ECs"),
-                     c("PVL","Venous_ECs"),
-                     c("PVL","Capillary_ECs"),
-                     c("PVL","LECs"))
-
+cell_pair_list<-list(c("PC","Tip_ECs"),
+                     c("PC","Immature_ECs"),
+                     c("PC","Artery_ECs"),
+                     c("PC","Venous_ECs"),
+                     c("PC","Capillary_ECs"),
+                     c("PC","LECs"))
+total_outputdata<-data.frame()
 for (i in 1:length(cell_pair_list)){
   cell_pair<-cell_pair_list[[i]]
   
@@ -293,7 +295,10 @@ for (i in 1:length(cell_pair_list)){
   
   
   merged_table<-merge(CD8_tab,Neutro_tab,by="sample_ID")
-  
+  total_outputdata<-rbind(total_outputdata,
+                          data.frame(Cluster1=Cluster1,Cluster2=Cluster2,
+                                     merged_table)
+  )
   cor.value<-cor(merged_table$per.x,merged_table$per.y)
   cor.value<-round(cor.value,2)
   p.value<-cor.test(merged_table$per.x,merged_table$per.y)$p.value
@@ -327,6 +332,13 @@ for (i in 1:length(cell_pair_list)){
 }
 cor_p4<-p1+p2+p3+p4+p5+p6+plot_layout(ncol=3)
 
+colnames(total_outputdata)<-c("Cluster1","Cluster2","sample_ID",
+                              "percentage_Cluster1", "percentage_Cluster2")
+total_outputdata<-total_outputdata[,c("sample_ID","Cluster1","percentage_Cluster1",
+                                      "Cluster2",
+                                      "percentage_Cluster2")]
+
+write.table(total_outputdata,"source_data_NC/Figure_3H.txt",sep = "\t",row.names = F,col.names = T)
 
 
 
@@ -360,6 +372,16 @@ netVisual_b1<-netVisual_bubble(cellchat, pairLR.use = pairLR.use, sources.use = 
         legend.position = "none",
         legend.text = element_text(size = 8))
 
+netVisual_b1_data<-netVisual_b1$data
+netVisual_b1_data$source<-as.character(netVisual_b1_data$source)
+netVisual_b1_data$source.target<-as.character(netVisual_b1_data$source.target)
+netVisual_b1_data$source[which(netVisual_b1_data$source=="PVL")]<-"PC"
+netVisual_b1_data$source.target[which(netVisual_b1_data$source.target=="PVL")]<-"PC"
+netVisual_b1_data$source.target<-gsub("PVL","PC",netVisual_b1_data$source.target)
+
+write.table(netVisual_b1_data,"source_data_NC/Figure_3D_right.txt",sep = "\t",row.names = F,col.names = T)
+
+
 netVisual_b11<-netVisual_bubble(cellchat, pairLR.use = pairLR.use, 
                                 sources.use = c(     "DC" , "Mono"   , "Macro" ,"NF", "CAF"   ,   "PVL",     "Endo" ,   "Epi"),
                                 targets.use  = "Endo",remove.isolate = FALSE)+
@@ -371,6 +393,17 @@ netVisual_b11<-netVisual_bubble(cellchat, pairLR.use = pairLR.use,
         legend.position = "none",
         legend.text = element_text(size = 8))
 
+
+netVisual_b11_data<-netVisual_b11$data
+netVisual_b11_data$source<-as.character(netVisual_b11_data$source)
+netVisual_b11_data$target<-as.character(netVisual_b11_data$target)
+netVisual_b11_data$source.target<-as.character(netVisual_b11_data$source.target)
+netVisual_b11_data$source[which(netVisual_b11_data$source=="PVL")]<-"PC"
+netVisual_b11_data$target[which(netVisual_b11_data$target=="PVL")]<-"PC"
+netVisual_b11_data$source.target[which(netVisual_b11_data$source.target=="PVL")]<-"PC"
+netVisual_b11_data$source.target<-gsub("PVL","PC",netVisual_b11_data$source.target)
+
+write.table(netVisual_b11_data,"source_data_NC/Figure_3D_left.txt",sep = "\t",row.names = F,col.names = T)
 
 
 
@@ -414,6 +447,18 @@ cell_chat_p2<-netVisual_bubble(cellchat, pairLR.use = pairLR.use,  comparison = 
         legend.text = element_text(size = 8))
 
 
+cell_chat_p2_data<-cell_chat_p2$data
+cell_chat_p2_data$source<-as.character(cell_chat_p2_data$source)
+cell_chat_p2_data$target<-as.character(cell_chat_p2_data$target)
+cell_chat_p2_data$source.target<-as.character(cell_chat_p2_data$source.target)
+cell_chat_p2_data$source[which(cell_chat_p2_data$source=="PVL")]<-"PC"
+cell_chat_p2_data$target[which(cell_chat_p2_data$target=="PVL")]<-"PC"
+cell_chat_p2_data$source.target<-gsub("PVL","PC",cell_chat_p2_data$source.target)
+cell_chat_p2_data$group.names<-gsub("PVL","PC",cell_chat_p2_data$group.names)
+
+write.table(cell_chat_p2_data,"source_data_NC/Figure_3E.txt",sep = "\t",row.names = F,col.names = T)
+
+
 
 
 ##correlation
@@ -450,7 +495,7 @@ sub_sce2<-combined
 
 combined<-merge(sub_sce1,sub_sce2)
 combined$Cluster<-factor(combined$Cluster,levels=c(       "B"  ,   "Plasma",  "CD4_conv" ,"CD4_Treg", "CD8"  ,"MAIT",   "NK" ,   
-                                                        "DC" , "Mono"   , "Macro" ,"Mast" ,"NF", "CAF"   ,   "PVL",     "Endo" ,   "Epi")
+                                                        "DC" , "Mono"   , "Macro" ,"Mast" ,"NF", "CAF"   ,   "PC",     "Endo" ,   "Epi")
 )
 Idents(combined)<-combined$Cluster
 Vln_exp<-VlnPlot(combined,features = c("ANGPT2","TEK","PGF","FLT1"),pt.size=0,group.by="Cluster",ncol=2) &
@@ -461,374 +506,13 @@ Vln_exp<-VlnPlot(combined,features = c("ANGPT2","TEK","PGF","FLT1"),pt.size=0,gr
         #axis.title.x = element_text(size = 10),
         plot.title = element_text(size = 10,vjust = 0.5,hjust=0.5))
 
-
-
-
-combined<-readRDS("3.Cluster/13.Annotation/2.Stromal_annotation.rds")
-
-
-Idents(combined)<-combined$TopCluster
-combined<-subset(combined,idents="PVL")
-
-data<-combined@assays$integrated@scale.data
-data<-as.matrix(data)
-
-gene_name<- c("PGF")
-
-
-select_fpkm_matrix<-data.frame(Cell_ID=combined$Cell_ID,
-                               Type=factor(combined$Type),
-                               Cluster=combined$SubCluster,
-                               gene=as.numeric(data[gene_name,]))
-
-
-box_p2<-ggplot(data=select_fpkm_matrix,aes(x=gene,y=Cluster,fill=Cluster))+
-  geom_density_ridges(alpha = 0.8,
-                      #color= 'white',
-                      rel_min_height= 0.01, #尾部修剪，数值越大修剪程度越高
-                      scale= 1.8, #山脊重叠程度调整，scale = 1时刚好触及基线，数值越大重叠度越高
-                      quantile_lines= TRUE, #显示分位数线
-                      quantiles= 2 ) + 
-  ggtitle("Expression of PGF")+
-  xlab("Expression level")+
-  scale_fill_manual(values = viridis::viridis(5,option = "D"))+
-  #stat_compare_means(method = "wilcox.test",label = "p.format",size=3)+
-  theme_classic()+
-  scale_x_continuous(expand = c(0,0))+
-  xlim(c(-2 ,6))+
-  theme(plot.title = element_text(size = 10,hjust = 0.5),
-        axis.title.x = element_text(size = 10),
-        axis.title.y = element_text(size = 10),
-        axis.text.x = element_text(size = 10),
-        axis.text.y = element_text(size = 10),
-        legend.title = element_text(size = 10),
-        legend.position = "none",
-        legend.text = element_text(size = 10),
-        strip.background = element_blank())
-box_p2
-
-
-
-gene_name<- c("ANGPT2")
-
-
-select_fpkm_matrix<-data.frame(Cell_ID=combined$Cell_ID,
-                               Type=factor(combined$Type),
-                               Cluster=combined$SubCluster,
-                               gene=as.numeric(data[gene_name,]))
-
-
-box_p3<-ggplot(data=select_fpkm_matrix,aes(x=gene,y=Cluster,fill=Cluster))+
-  geom_density_ridges(alpha = 0.8,
-                      #color= 'white',
-                      rel_min_height= 0.01, #尾部修剪，数值越大修剪程度越高
-                      scale= 1.8, #山脊重叠程度调整，scale = 1时刚好触及基线，数值越大重叠度越高
-                      quantile_lines= TRUE, #显示分位数线
-                      quantiles= 2 ) + 
-  ggtitle("Expression of ANGPT2")+
-  xlab("Expression level")+
-  scale_fill_manual(values = viridis::viridis(5,option = "D"))+
-  #stat_compare_means(method = "wilcox.test",label = "p.format",size=3)+
-  theme_classic()+
-  scale_x_continuous(expand = c(0,0))+
-  xlim(c(-2 ,6))+
-  theme(plot.title = element_text(size = 10,hjust = 0.5),
-        axis.title.x = element_text(size = 10),
-        axis.title.y = element_blank(),
-        axis.text.x = element_text(size = 10),
-        axis.text.y = element_blank(),
-        legend.title = element_text(size = 10),
-        legend.position = "none",
-        legend.text = element_text(size = 10),
-        strip.background = element_blank())
-box_p3
-
-
-
-
-
-
-
-
-##Bevtreatment
-data<-read.table("/home/zhengyq/data/single_cell/18.pan_Endo/Non_immune/8.RNA_Seq/GSE140082/GSE140082_geo.normdata.csv",sep=",",header = T)
-
-colnames(data)[1]<-"ID"
-
-ID_map<-data.table::fread("/home/zhengyq/data/single_cell/18.pan_Endo/Non_immune/8.RNA_Seq/GSE140082/GPL14951-11332.txt")
-ID_map<-ID_map[,c("ID","ILMN_Gene")]
-data<-merge(ID_map,data,by="ID")
-
-data<-data[which(!(duplicated(data$ILMN_Gene))),]
-data<-data.frame(data)
-rownames(data)<-data$ILMN_Gene
-
-data<-data[,which(!(grepl("pval",colnames(data))))]
-data<-data[,c(-1,-2)]
-
-
-
-Gene_name="EGFL6+ imPC"
-select_gene=Gene_name
-
-
-##survival_analysis
-surv_table<-read.table("/home/zhengyq/data/single_cell/18.pan_Endo/Non_immune/8.RNA_Seq/GSE140082/Survival.txt",header = T,stringsAsFactors = F,sep="\t")
-surv_table<-surv_table[which(surv_table$Treatment=="bevacizumab"),]
-surv_table<-na.omit(surv_table)
-
-
-mymatrix<-as.matrix(data)
-
-Tip_Markers<-c("RGS5","MYL9","EGFL6","ACTA2","MCAM","PGF","ANGPT2","THY1")
-
-
-
-mysymbol<-data.frame(Gene_set="Tip_ECs",Gene_symbol=Tip_Markers)
-
-
-colnames(mysymbol)<-c("Gene_set","Gene_symbol")
-head(mysymbol)
-table(mysymbol$Gene_set)
-
-
-
-type <- unique(mysymbol$Gene_set)
-type
-gs <- list()
-for (i in type){
-  tmp <- mysymbol$Gene_symbol[which(mysymbol$Gene_set == i)]
-  tmp <- list(tmp)
-  gs <- c(gs,tmp)
-}
-names(gs) <- type
-gs
-
-library(GSVA)
-es.dif <- gsva(mymatrix, gs, method = "ssgsea", ssgsea.norm = T, mx.diff=TRUE, verbose=FALSE, parallel.sz=10)
-
-
-mt<-es.dif[1,]
-
-select_fpkm_matrix<-data.frame(Tumor_ID=colnames(data),
-                               gene=as.numeric(mt))
-
-
-##Cut off by OS
-merged_matrix<-merge(select_fpkm_matrix,surv_table,by="Tumor_ID")
-
-library(survminer)
-library(survival)
-res.cut <- surv_cutpoint(merged_matrix, #数据集
-                         time = "OS_Time", #生存状态
-                         event = "OS", #生存时间
-                         variables = c("gene") #需要计算的数据列名
-)
-merged_matrix$gene_level<-"Low"
-merged_matrix$gene_level[merged_matrix$gene>res.cut$cutpoint$cutpoint]<-"High"
-
-surv_fit<-survfit(Surv(OS_Time , OS) ~ gene_level,data= merged_matrix)
-
-Bev_gg_surv1<-ggsurvplot(surv_fit,
-                         conf.int = F,
-                         #fun = "cumhaz",
-                         linetype =  1, # Change line type by groups
-                         size=0.5,
-                         censor = F,
-                         #surv.median.line = "hv", # Specify median survival
-                         ggtheme = theme_bw(),# Change ggplot2 theme
-                         
-                         palette = c("#E72C19", "#224FA2"),
-                         title = paste("OS by ",Gene_name,",\nBev treatments cohort",sep=""),
-                         #font.family = "Arial",
-                         #axis
-                         xscale = "d_y",
-                         pval = T,
-                         surv.scale = "percent",
-                         xlim = c(0, 1470), 
-                         break.time.by=365.25,
-                         xlab = "Time from diagnosis (years)",
-                         #ylim = c(0, 0.05),
-                         break.y.by=NULL,
-                         ylab = "OS rate (%)",
-                         #legend
-                         legend = c(0.8,0.8),
-                         legend.title = Gene_name,
-                         legend.labs = c("High","Low"),
-                         #risk table
-                         risk.table = F,# Add risk table
-                         
-                         #字体
-                         font.tickslab = c(10, "black"),
-                         font.x = c(10, "black"),
-                         font.y = c(10, "black"),
-                         font.main = c(10, "black"),
-                         font.legend = c(10, "black"),
-)
-Bev_gg_surv1$plot<-Bev_gg_surv1$plot+theme_classic()+theme(plot.title = element_text(hjust = 0.5,size=10),
-                                                           legend.title = element_blank(),
-                                                           legend.position = "none")
-print (Bev_gg_surv1)
-
-
-
-
-
-surv_fit<-survfit(Surv(PFS_Time , PFS) ~ gene_level,data= merged_matrix)
-
-Bev_gg_surv2<-ggsurvplot(surv_fit,
-                         conf.int = F,
-                         #fun = "cumhaz",
-                         linetype =  1, # Change line type by groups
-                         size=0.5,
-                         censor = F,
-                         #surv.median.line = "hv", # Specify median survival
-                         ggtheme = theme_bw(),# Change ggplot2 theme
-                         
-                         palette = c("#E72C19", "#224FA2"),
-                         title = paste("PFS by ",Gene_name,",\nBev treatments cohort",sep=""),
-                         #font.family = "Arial",
-                         #axis
-                         xscale = "d_y",
-                         pval = T,
-                         surv.scale = "percent",
-                         xlim = c(0, 1470), 
-                         break.time.by=365.25,
-                         xlab = "Time from diagnosis (years)",
-                         #ylim = c(0, 0.05),
-                         break.y.by=NULL,
-                         ylab = "PFS rate (%)",
-                         #legend
-                         legend = c(0.8,0.8),
-                         legend.title = Gene_name,
-                         legend.labs = c("High","Low"),
-                         #risk table
-                         risk.table = F,# Add risk table
-                         
-                         #字体
-                         font.tickslab = c(10, "black"),
-                         font.x = c(10, "black"),
-                         font.y = c(10, "black"),
-                         font.main = c(10, "black"),
-                         font.legend = c(10, "black"),
-)
-Bev_gg_surv2$plot<-Bev_gg_surv2$plot+theme_classic()+theme(plot.title = element_text(hjust = 0.5,size=10),
-                                                           legend.title = element_blank(),
-                                                           legend.position = "right")
-print (Bev_gg_surv2)
-
-
-
-##survival
-
-library(ggpubr)
-library(magrittr)
-library(ggsignif)
-library(ggplot2)
-library(ggsci)
-library(RColorBrewer)
-
-
-
-
-Gene_name="MCAM_imPC"
-select_gene=Gene_name
-
-
-RNA_matrix<-data.table::fread("~/data/TCGA/pancancer_expression/GDC-PANCAN.htseq_fpkm-uq.tsv",header = T,stringsAsFactors = F)
-RNA_matrix<-data.frame(RNA_matrix)
-gene_probe<-data.table::fread("~/data/TCGA/pancancer_expression/gencode.v22.annotation.gene.probeMap",header = T,stringsAsFactors = F)
-phenotype_matrix<-data.table::fread("~/data/TCGA/pancancer_expression/GDC-PANCAN.basic_phenotype.tsv",header = T,stringsAsFactors = F)
-colnames(gene_probe)[1]<-"Ensembl_ID"
-colnames(RNA_matrix)[1]<-"Ensembl_ID"
-gene_probe<-gene_probe[,c(1,2)]
-RNA_matrix<-merge(gene_probe,RNA_matrix,by="Ensembl_ID")
-RNA_matrix<-data.frame(RNA_matrix)
-RNA_matrix<-RNA_matrix[which(!(duplicated(RNA_matrix$gene))),]
-rownames(RNA_matrix)<-RNA_matrix$gene
-
-RNA_matrix<-RNA_matrix[,3:ncol(RNA_matrix)]
-colnames(RNA_matrix)<-gsub("\\.","-",colnames(RNA_matrix))
-
-Gene_name1="MCAM_imPC"
-Gene_name2="SPP1_TAM"
-
-mymatrix<-as.matrix(RNA_matrix)
-Tip_Markers<-c("MYL9","GUCY1B3","ACTA2","SOD3","CALD1","TPM2","TAGLN","EGFL6","RGS5","PPP1R14A","SEPT4","HIGD1B","MFGE8","GJA4","FOXS1","C1QTNF1","HEYL","GUCY1A3","COX4I2","KCNMB1","ADAP2","RCSD1","BGN","FSCN1","SPARCL1","CRISPLD2","S100A10","SLC38A11","HEY2","NOTCH3","WFDC1","PTP4A3","TPM1","PERP","GEM","COL4A2","GPR4","CSRP2","KCNA5","C11orf96","MYLK","HSPB6","EFHD1","DKK3","MCAM","S100A16","FRZB","ESAM","RASL12","PLXDC1","EDNRA","FOXF1","A2M")
-Endo_Markers<-c("PLVAP","AQP1","PECAM1","RNASE1","CD93","EMCN","SRGN","ADGRL4","FBLN1","GIMAP4","PTPRB","IL3RA","ARHGAP29","PITX2","VWF","ESAM","CDH5","S1PR1","CLEC14A","RAMP3","TIE1","ICAM2","FLT1","CXorf36","CD34","CYYR1","PODXL","FLI1","CCL14","CLDN5","RAMP2","ENG","LDB2","PCDH17","HYAL2","NPDC1","ADCY4","SLCO2A1","TMEM255B","MCTP1","RND1","PLTP","GNG11","CD200","ERG","ACKR1","TGFBR2","COL4A1","COL15A1","EGFL7")
-mysymbol1<-data.frame(Gene_set="Tip_ECs",Gene_symbol=Tip_Markers)
-mysymbol2<-data.frame(Gene_set="Endo",Gene_symbol=Endo_Markers)
-mysymbol<-rbind(mysymbol1,mysymbol2)
-
-colnames(mysymbol)<-c("Gene_set","Gene_symbol")
-head(mysymbol)
-table(mysymbol$Gene_set)
-
-
-
-type <- unique(mysymbol$Gene_set)
-type
-gs <- list()
-for (i in type){
-  tmp <- mysymbol$Gene_symbol[which(mysymbol$Gene_set == i)]
-  tmp <- list(tmp)
-  gs <- c(gs,tmp)
-}
-names(gs) <- type
-gs
-
-library(GSVA)
-es.dif <- gsva(mymatrix, gs, method = "ssgsea", ssgsea.norm = T, mx.diff=TRUE, verbose=FALSE, parallel.sz=20)
-
-##survplot
-mt<-es.dif[1,]/es.dif[2,]
-select_table<-data.frame(sample=colnames(RNA_matrix),
-                         gene1=es.dif[1,],
-                         gene2=es.dif[2,])
-
-
-merge_matrix<-merge(phenotype_matrix,select_table,by="sample")
-
-merge_matrix<-merge_matrix[which(merge_matrix$program=="TCGA"),]
-merge_matrix<-merge_matrix[which(merge_matrix$sample_type=="Primary Tumor"),]
-merge_matrix<-data.frame(merge_matrix)
-
-
-project_list<-c(  "TCGA-BLCA" ,"TCGA-BRCA", "TCGA-CESC", "TCGA-COAD" , "TCGA-GBM" ,
-                  "TCGA-KIRP", "TCGA-LIHC",  "TCGA-MESO",
-                  "TCGA-PAAD","TCGA-STAD", 
-                  "TCGA-UCEC","TCGA-UVM" )
-
-
-select_matrix<-merge_matrix
-project_id_list<-unique(select_matrix$project_id)
-project_id_list<-project_id_list[which((project_id_list %in% c(project_list)))]
-select_table<-select_matrix[select_matrix$project_id %in% project_id_list, ]
-
-
-#绘图
-TCGA_cor_p1 <- ggplot(select_table, aes(x=gene1, y=gene2, group = 1))+
-  geom_point(data = select_table,aes(x=gene1, y=gene2),size=0.5,color="#BEBADA",alpha=0.8)+
-  geom_smooth(method="lm",size=0.5,se=F,color="black",linetype="dashed")+
-  stat_cor(size=3)+
-  #ylim(c(0,5))+
-  ylab(paste0("ssGSEA score (",Gene_name2,")"))+
-  xlab(paste0("ssGSEA score (",Gene_name1,")"))+
-  #expand_limits(y = c(0,5),x=c(2,8))+
-  ggtitle("Correlation of PCs and ECs, TCGA pan-caner dataset (RNA-seq)")+
-  theme_classic()+
-  theme(plot.title = element_text(size = 10,hjust = 0.5),
-        axis.title.x = element_text(size = 10),
-        axis.title.y = element_text(size = 10),
-        axis.line = element_blank(),
-        panel.border = element_rect(fill = NA,linewidth = 0.5,colour = "grey"),
-        axis.text = element_blank(),
-        plot.subtitle =element_text(size = 10,hjust = 0.0) ,
-        strip.background = element_blank()) +
-  scale_y_continuous(expand = c(0, 0))+
-  scale_x_continuous(expand = c(0, 0))+
-  facet_wrap(~project_id,scales = "free",ncol=6)
-print(TCGA_cor_p1)
+data1<-data.frame(Cluster=Vln_exp[[1]]$data$ident,
+                  ANGPT2=Vln_exp[[1]]$data$ANGPT2,
+                  TEK=Vln_exp[[2]]$data$TEK,
+                  PGF=Vln_exp[[3]]$data$PGF,
+                  FLT1=Vln_exp[[4]]$data$FLT1
+                  )
+write.table(data1,"source_data_NC/Figure_3G.txt",sep = "\t",row.names = F,col.names = T)
 
 
 
@@ -989,19 +673,410 @@ cor_dot_plot<-ggplot(total_tab,aes(x=PGF.cor.value,y=ANGPT2.cor.value,color=Canc
 
 cor_dot_plot
 
+write.table(cor_dot_plot$data,"source_data_NC/Figure_3F.txt",sep = "\t",row.names = F,col.names = T)
+
+
+
+
+
+##
+color_list<-c("#E41A1C", "#377EB8", "#4DAF4A" ,"#984EA3", "#FF7F00" ,"#A65628","#F781BF" ,"#999999")
+
+select_table<-read.table("Experiments/Angiogenesis_plot.csv",sep=",",header=T)
+select_table$Type<-as.character(select_table$group)
+
+
+##Nodes
+select_table$Type<-factor(select_table$Type,levels=c("normoxia","hypoxia"))
+select_table$mg.ml<-select_table$Nb.nodes
+
+data1<-dplyr::summarize(group_by(select_table,Type),
+                        mean.var=mean(mg.ml),
+                        sd=sd(mg.ml),
+                        lower.ci=mean(mg.ml)-sd(mg.ml),
+                        upper.ci=mean(mg.ml)+sd(mg.ml)
+)
+data1$mg.ml<-data1$mean.var
+Nb.nodes<-ggplot(data=select_table, aes(Type, mg.ml, color = Type))+
+  stat_compare_means(data=select_table,label = "p.format", method = "t.test",label.y.npc = 0.85,size=3)+
+  geom_jitter(width = 0.2 )+
+  
+  geom_bar(data=data1,aes(x=Type, y=mg.ml,color = Type),stat = "identity",size = 1.1,width = 0.7,fill=NA)+
+  geom_errorbar(data=data1,aes(x=Type,ymin = lower.ci, ymax=upper.ci),stat = "identity", #误差条表示均值±标准差
+                width=0.1, #误差条末端短横线的宽度
+                #position=position_dodge(0), 
+                color="black",
+                alpha = 0.7,
+                size=0.7) +
+  theme_classic()+
+  
+  scale_color_manual(values =c("#4DBBD5", "#E64B35"))+
+  labs(x = 'Type', y = 'Number of nodes',title=paste ("Number of nodes")) +
+  #theme(panel.grid = element_blank(), panel.background = element_rect(color = 'black', fill = 'transparent'), strip.text = element_text(size = 12)) +
+  
+  theme(plot.title = element_text(size = 10,hjust = 0.5),
+        axis.title.x = element_blank(),
+        axis.line = element_blank(),
+        axis.title.y = element_text(size = 10),
+        axis.text.x = element_blank(),
+        axis.text.y = element_text(size = 10),
+        legend.title = element_text(size = 10),
+        legend.position = "none",
+        legend.text = element_text(size = 10),
+        panel.border = element_rect(fill=NA,color="grey",size=0.5),
+        strip.background = element_blank())+
+  scale_y_continuous(expand = c(0,0),limits = c(0,1500))
+
+print(Nb.nodes)
+
+
+write.table(select_table[,1:6],"source_data_NC/Figure_3J.txt",sep = "\t",row.names = F,col.names = T)
+
+
+
+
+##Nb.Junctions
+select_table$Type<-factor(select_table$Type,levels=c("normoxia","hypoxia"))
+select_table$mg.ml<-select_table$Nb.Junctions
+
+data1<-dplyr::summarize(group_by(select_table,Type),
+                        mean.var=mean(mg.ml),
+                        sd=sd(mg.ml),
+                        lower.ci=mean(mg.ml)-sd(mg.ml),
+                        upper.ci=mean(mg.ml)+sd(mg.ml)
+)
+data1$mg.ml<-data1$mean.var
+Nb.Junctions<-ggplot(data=select_table, aes(Type, mg.ml, color = Type))+
+  stat_compare_means(data=select_table,label = "p.format", method = "t.test",label.y.npc = 0.85,size=3)+
+  geom_jitter(width = 0.2 )+
+  
+  geom_bar(data=data1,aes(x=Type, y=mg.ml,color = Type),stat = "identity",size = 1.1,width = 0.7,fill=NA)+
+  geom_errorbar(data=data1,aes(x=Type,ymin = lower.ci, ymax=upper.ci),stat = "identity", #误差条表示均值±标准差
+                width=0.1, #误差条末端短横线的宽度
+                #position=position_dodge(0), 
+                color="black",
+                alpha = 0.7,
+                size=0.7) +
+  theme_classic()+
+  
+  scale_color_manual(values =c("#4DBBD5", "#E64B35"))+
+  labs(x = 'Type', y = 'Number of junctions',title=paste ("Number of junctions")) +
+  #theme(panel.grid = element_blank(), panel.background = element_rect(color = 'black', fill = 'transparent'), strip.text = element_text(size = 12)) +
+  
+  theme(plot.title = element_text(size = 10,hjust = 0.5),
+        axis.title.x = element_blank(),
+        axis.line = element_blank(),
+        axis.title.y = element_text(size = 10),
+        axis.text.x = element_blank(),
+        axis.text.y = element_text(size = 10),
+        legend.title = element_text(size = 10),
+        legend.position = "none",
+        legend.text = element_text(size = 10),
+        panel.border = element_rect(fill=NA,color="grey",size=0.5),
+        strip.background = element_blank())+
+  scale_y_continuous(expand = c(0,0),limits = c(0,500))
+
+
+print(Nb.Junctions)
+
+
+
+
+
+
+
+##Tot.meshes.area
+select_table$Type<-factor(select_table$Type,levels=c("normoxia","hypoxia"))
+mean_var<-mean(select_table$Tot.meshes.area[which(select_table$Type=="normoxia")])
+select_table$mg.ml<-select_table$Tot.meshes.area/mean_var
+
+data1<-dplyr::summarize(group_by(select_table,Type),
+                        mean.var=mean(mg.ml),
+                        sd=sd(mg.ml),
+                        lower.ci=mean(mg.ml)-sd(mg.ml),
+                        upper.ci=mean(mg.ml)+sd(mg.ml)
+)
+data1$mg.ml<-data1$mean.var
+Tot.meshes.area<-ggplot(data=select_table, aes(Type, mg.ml, color = Type))+
+  stat_compare_means(data=select_table,label = "p.format", method = "t.test",label.y.npc = 0.85,size=3)+
+  geom_jitter(width = 0.2 )+
+  
+  geom_bar(data=data1,aes(x=Type, y=mg.ml,color = Type),stat = "identity",size = 1.1,width = 0.7,fill=NA)+
+  geom_errorbar(data=data1,aes(x=Type,ymin = lower.ci, ymax=upper.ci),stat = "identity", #误差条表示均值±标准差
+                width=0.1, #误差条末端短横线的宽度
+                #position=position_dodge(0), 
+                color="black",
+                alpha = 0.7,
+                size=0.7) +
+  theme_classic()+
+  
+  scale_color_manual(values =c("#4DBBD5", "#E64B35"))+
+  labs(x = 'Type', y = 'Area (fold change)',title=paste ("Total meshes area")) +
+  #theme(panel.grid = element_blank(), panel.background = element_rect(color = 'black', fill = 'transparent'), strip.text = element_text(size = 12)) +
+  
+  theme(plot.title = element_text(size = 10,hjust = 0.5),
+        axis.title.x = element_blank(),
+        axis.line = element_blank(),
+        axis.title.y = element_text(size = 10),
+        axis.text.x = element_blank(),
+        axis.text.y = element_text(size = 10),
+        legend.title = element_text(size = 10),
+        legend.position = "right",
+        legend.text = element_text(size = 10),
+        panel.border = element_rect(fill=NA,color="grey",size=0.5),
+        strip.background = element_blank())+
+  scale_y_continuous(expand = c(0,0),limits = c(0,1.5))
+
+
+print(Tot.meshes.area)
+
+
+
+
+##Tot.meshes.area
+select_table$Type<-factor(select_table$Type,levels=c("normoxia","hypoxia"))
+mean_var<-mean(select_table$Tot..lenght[which(select_table$Type=="normoxia")])
+select_table$mg.ml<-select_table$Tot..lenght/mean_var
+
+data1<-dplyr::summarize(group_by(select_table,Type),
+                        mean.var=mean(mg.ml),
+                        sd=sd(mg.ml),
+                        lower.ci=mean(mg.ml)-sd(mg.ml),
+                        upper.ci=mean(mg.ml)+sd(mg.ml)
+)
+data1$mg.ml<-data1$mean.var
+Tot..lenght<-ggplot(data=select_table, aes(Type, mg.ml, color = Type))+
+  stat_compare_means(data=select_table,label = "p.format", method = "t.test",label.y.npc = 0.85,size=3)+
+  geom_jitter(width = 0.2 )+
+  
+  geom_bar(data=data1,aes(x=Type, y=mg.ml,color = Type),stat = "identity",size = 1.1,width = 0.7,fill=NA)+
+  geom_errorbar(data=data1,aes(x=Type,ymin = lower.ci, ymax=upper.ci),stat = "identity", #误差条表示均值±标准差
+                width=0.1, #误差条末端短横线的宽度
+                #position=position_dodge(0), 
+                color="black",
+                alpha = 0.7,
+                size=0.7) +
+  theme_classic()+
+  
+  scale_color_manual(values =c("#4DBBD5", "#E64B35"))+
+  labs(x = 'Type', y = 'Length (fold change)',title=paste ("Total length")) +
+  #theme(panel.grid = element_blank(), panel.background = element_rect(color = 'black', fill = 'transparent'), strip.text = element_text(size = 12)) +
+  
+  theme(plot.title = element_text(size = 10,hjust = 0.5),
+        axis.title.x = element_blank(),
+        axis.line = element_blank(),
+        axis.title.y = element_text(size = 10),
+        axis.text.x = element_blank(),
+        axis.text.y = element_text(size = 10),
+        legend.title = element_text(size = 10),
+        legend.position = "none",
+        legend.text = element_text(size = 10),
+        panel.border = element_rect(fill=NA,color="grey",size=0.5),
+        strip.background = element_blank())+
+  scale_y_continuous(expand = c(0,0),limits = c(0,1.4))
+
+
+print(Tot..lenght)
+
+
+
+mid_p<-Nb.nodes+Nb.Junctions+Tot..lenght+Tot.meshes.area+plot_layout(ncol=2)
+mid_p
+
+
+library(ggplot2)
+library(ggpubr)
+tab<-read.table("Experiments/pericyte_tumor_curve.csv",sep=",",header = T)
+
+g1<-tab$X19[which(tab$group=="HCT116+Pericyte")]
+g2<-tab$X19[which(tab$group=="HCT116")]
+color_list<-c("#E41A1C","#377EB8","#984EA3",  "#4DAF4A" , "#FF7F00" ,"#A65628","#F781BF" ,"#999999")
+
+
+#tab<-tab[,c(1,3:7)]
+library(reshape2)
+tab1<-melt(tab,value.name = "Value",id.vars = c("group"))
+tab1$Time<-as.numeric(gsub("X","",tab1$variable))
+tab1$Group<-"HCT116"
+tab1$Group[tab1$group=="HCT116+Pericyte"]<-"HCT116+PCs"
+tab1$Group<-factor(tab1$Group,levels=c("HCT116+PCs" , "HCT116"))
+library(dplyr)
+result_table<-dplyr::summarize(group_by(tab1,Group,Time),
+                               mean_var=mean(Value),
+                               SD=sd(Value),
+                               N_N=n(),  
+                               se=SD/sqrt(N_N),  
+                               upper_limit=mean_var+SD,  
+                               lower_limit=mean_var-SD)
+
+
+
+mice_line_p1 <- ggplot(result_table, aes(x=Time, y=mean_var, color=Group,group=Group))+
+  geom_point(data = result_table,aes(x=Time, y=mean_var),pch=15,size=1.5)+
+  geom_line(size=0.5)+
+  geom_errorbar(data = result_table,aes(ymin = lower_limit, ymax=upper_limit), #误差条表示均值±标准差
+                width=0.2, #误差条末端短横线的宽度
+                alpha = 0.7,
+                size=0.5) +
+  scale_color_manual(values = color_list)+
+  #geom_hline(yintercept = 1,size=0.5)+
+  # ylim(c(0,3))+
+  ylab("Tumor volume (cm3)")+
+  xlab("Time (Days)")+
+  ggtitle("Tumor growth curve\n(HCT116 with or without PCs)")+
+  theme_classic2()+
+  theme(legend.position=c(0.3,0.75),
+        plot.title = element_text(size = 10,hjust = 0.5),
+        axis.title.x = element_text(size = 10),
+        axis.title.y = element_text(size = 10),
+        axis.text.x = element_text(size = 10),
+        axis.text.y = element_text(size = 10),
+        legend.title = element_text(size = 10),
+        
+        legend.text = element_text(size = 10)) +
+  scale_y_continuous(expand = c(0,0),limits = c(0,0.8),breaks =seq(0,0.8,0.2))
+print (mice_line_p1)
+
+
+write.table(result_table,"source_data_NC/Figure_3K_curve.txt",sep = "\t",row.names = F,col.names = T)
+write.table(tab1[,c(1,3,4)],"source_data_NC/Figure_3K_data.txt",sep = "\t",row.names = F,col.names = T)
+
+
+
+
+
+
+##
+color_list<-c("#E41A1C", "#377EB8", "#4DAF4A" ,"#984EA3", "#FF7F00" ,"#A65628","#F781BF" ,"#999999")
+
+select_table<-read.table("Experiments/pericyte_tumoe_weight.csv",sep=",",header=T)
+select_table$Type<-"HCT116"
+select_table$Type[select_table$group=="HCT116+Pericyte"]<-"HCT116+PCs"
+select_table$Type<-factor(select_table$Type,levels=c("HCT116+PCs" , "HCT116"))
+
+
+##Nodes
+select_table$Type<-factor(select_table$Type,levels=c( "HCT116","HCT116+PCs"))
+select_table$mg.ml<-select_table$weight
+
+data1<-dplyr::summarize(group_by(select_table,Type),
+                        mean.var=mean(mg.ml),
+                        sd=sd(mg.ml),
+                        lower.ci=mean(mg.ml)-sd(mg.ml),
+                        upper.ci=mean(mg.ml)+sd(mg.ml)
+)
+data1$mg.ml<-data1$mean.var
+PC_weight<-ggplot(data=select_table, aes(Type, mg.ml, color = Type))+
+  stat_compare_means(data=select_table,label = "p.format", method = "t.test",label.y.npc = 0.85,size=3)+
+  geom_jitter(width = 0.2 )+
+  
+  geom_bar(data=data1,aes(x=Type, y=mg.ml,color = Type),stat = "identity",size = 1.1,width = 0.7,fill=NA)+
+  geom_errorbar(data=data1,aes(x=Type,ymin = lower.ci, ymax=upper.ci),stat = "identity", #误差条表示均值±标准差
+                width=0.1, #误差条末端短横线的宽度
+                #position=position_dodge(0), 
+                color="black",
+                alpha = 0.7,
+                size=0.7) +
+  theme_classic()+
+  
+  scale_color_manual(values =c( "#377EB8", "#E41A1C"))+
+  labs(x = 'Type', y = 'Tumor weights (g)',title=paste ("Terminal tumor weights")) +
+  #theme(panel.grid = element_blank(), panel.background = element_rect(color = 'black', fill = 'transparent'), strip.text = element_text(size = 12)) +
+  
+  theme(plot.title = element_text(size = 10,hjust = 0.5),
+        axis.title.x = element_blank(),
+        axis.line = element_blank(),
+        axis.title.y = element_text(size = 10),
+        axis.text.x = element_blank(),
+        axis.text.y = element_text(size = 10),
+        legend.title = element_text(size = 10),
+        legend.position = "none",
+        legend.text = element_text(size = 10),
+        panel.border = element_rect(fill=NA,color="grey",size=0.5),
+        strip.background = element_blank())+
+  scale_y_continuous(expand = c(0,0),limits = c(0,0.8))
+
+print(PC_weight)
+
+write.table(select_table[1:2],"source_data_NC/Figure_3L_top.txt",sep = "\t",row.names = F,col.names = T)
+
+
+
+select_table<-read.table("Experiments/pericyte_CD31.csv",sep=",",header=T)
+select_table$Type<-"HCT116"
+select_table$Type[select_table$group=="HCT116+Pericyte"]<-"HCT116+PCs"
+select_table$Type<-factor(select_table$Type,levels=c("HCT116+PCs" , "HCT116"))
+
+
+##Nodes
+select_table$Type<-factor(select_table$Type,levels=c( "HCT116","HCT116+PCs"))
+select_table$mg.ml<-select_table$X.area
+
+data1<-dplyr::summarize(group_by(select_table,Type),
+                        mean.var=mean(mg.ml),
+                        sd=sd(mg.ml),
+                        lower.ci=mean(mg.ml)-sd(mg.ml),
+                        upper.ci=mean(mg.ml)+sd(mg.ml)
+)
+data1$mg.ml<-data1$mean.var
+PC_CD31<-ggplot(data=select_table, aes(Type, mg.ml, color = Type))+
+  stat_compare_means(data=select_table,label = "p.format", method = "t.test",label.y.npc = 0.85,size=3)+
+  geom_jitter(width = 0.2 )+
+  
+  geom_bar(data=data1,aes(x=Type, y=mg.ml,color = Type),stat = "identity",size = 1.1,width = 0.7,fill=NA)+
+  geom_errorbar(data=data1,aes(x=Type,ymin = lower.ci, ymax=upper.ci),stat = "identity", #误差条表示均值±标准差
+                width=0.1, #误差条末端短横线的宽度
+                #position=position_dodge(0), 
+                color="black",
+                alpha = 0.7,
+                size=0.7) +
+  theme_classic()+
+  
+  scale_color_manual(values =c( "#377EB8", "#E41A1C"))+
+  labs(x = 'Type', y = 'CD31 density',title=paste ("CD31 density")) +
+  #theme(panel.grid = element_blank(), panel.background = element_rect(color = 'black', fill = 'transparent'), strip.text = element_text(size = 12)) +
+  
+  theme(plot.title = element_text(size = 10,hjust = 0.5),
+        axis.title.x = element_blank(),
+        axis.line = element_blank(),
+        axis.title.y = element_text(size = 10),
+        axis.text.x = element_blank(),
+        axis.text.y = element_text(size = 10),
+        legend.title = element_text(size = 10),
+        legend.position = "right",
+        legend.text = element_text(size = 10),
+        panel.border = element_rect(fill=NA,color="grey",size=0.5),
+        strip.background = element_blank())+
+  scale_y_continuous(expand = c(0,0),limits = c(0,2))
+
+print(PC_CD31)
+
+write.table(select_table[1:2],"source_data_NC/Figure_3L_bottom.txt",sep = "\t",row.names = F,col.names = T)
+
+
+
+mid_p<-Nb.nodes+Nb.Junctions+Tot..lenght+Tot.meshes.area+plot_layout(ncol=2)
+right_p<-PC_weight+PC_CD31+plot_layout(ncol=1)
+mid_p
+
+
+total_p6<-ggarrange(mid_p,mice_line_p1,right_p,ncol=4,widths = c(2,1.5,1.4,0.7))
+
+
+
+
 total_p1<-ggarrange(cor_p1,ggarrange(netVisual_b11+netVisual_b1+plot_layout(ncol=2,widths = c(2,1)),
                                      cell_chat_p2,ncol = 1,nrow = 2,heights = c(1,1.5)),ncol=2)
 total_p2<-ggarrange(netVisual_b1,cell_chat_p2,ncol=2,widths = c(1,1.2))
 total_p3<-ggarrange(Vln_exp,cor_p4,ncol=2,widths = c(1,1))
-total_p4<-box_p2+box_p3+Bev_gg_surv1$plot+Bev_gg_surv2$plot+plot_layout(ncol=4,widths = c(1,1,2,2))
 
 total_p5<-plot_spacer()+cor_dot_plot+plot_layout(ncol = 2,widths =c(3,1) )
-total_p<-ggarrange(total_p1,total_p5,total_p3,ncol=1,nrow=4,heights = c(5,3.5,4,3))
-pdf("14.Figure/6.Figure_6.pdf",width = 12,height = 15.5)
+total_p<-ggarrange(total_p1,total_p5,total_p3,total_p6,ncol=1,nrow=4,heights = c(5,3.5,4,3))
+pdf("14.Figure/3.Figure_3.pdf",width = 12,height = 15.5)
 print(total_p)
 dev.off()
 
 
-pdf("14.Figure/Figure_3.pdf",width = 2,height = 2)
+pdf("14.Figure/3.Figure_3.pdf",width = 2,height = 2)
 print(cor_p2)
 dev.off()
