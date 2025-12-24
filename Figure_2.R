@@ -1,7 +1,7 @@
 library(tidyverse)
 library(Seurat)
 
-setwd('~/project/scPericyte')
+setwd("/home/zhengyq/data/single_cell/18.pan_Endo/PGF/")
 
 # Figure 2 (A) ----
 markers <- c("VEGFA","VEGFB","VEGFC","PGF","ANGPT2","HGF",
@@ -26,6 +26,11 @@ p_dot <- Seurat::DotPlot(seu_merge, assay = "RNA", group.by = 'TopCluster', feat
            size = "Percentage\nExpressed",
            color = "Average\nExpression")}
 
+dot_data<-p_dot$data
+write.table(dot_data,"source_data_NC/Figure_2A.txt",sep = "\t",row.names = F,col.names = T)
+
+
+
 p_tree <- p_dot$data %>% 
   dplyr::select(id, features.plot, avg.exp.scaled) %>% 
   tidyr::pivot_wider(id_cols = id, names_from = features.plot, values_from = avg.exp.scaled) %>% 
@@ -48,7 +53,7 @@ colors_stroma <- c("#8DD3C7", "#FFFFB3", "#BEBADA", "#FB8072", "#80B1D3", "#FDB4
                    "#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#FF7F00", "#FFFF33", "#A65628", "#F781BF")
 names(colors_stroma) <- clusters_stroma
 
-seu_stroma <- readRDS("3.Cluster/13.Annotation/2.Stromal_annotation.rds")
+seu_stroma <- readRDS("3.Cluster/13.Annotation/2.Stromal_annotation_new.rds")
 
 plot_ls[['Stroma']] <- Seurat::DimPlot(object = seu_stroma, reduction = "umap", group.by = "SubCluster",
                                        cols = colors_stroma, label = T, raster = T) &
@@ -58,6 +63,8 @@ plot_ls[['Stroma']] <- Seurat::DimPlot(object = seu_stroma, reduction = "umap", 
     axis.title = element_blank(),
     axis.text = element_blank()
   )
+
+stroma_data<-data.frame(Cluster="Stromal cells",SubCluster=seu_stroma$SubCluster,round(seu_stroma@reductions$umap@cell.embeddings,2))
 
 
 clusters_epi <- c(
@@ -83,6 +90,9 @@ plot_ls[['Epi']] <- Seurat::DimPlot(object = seu_epi, reduction = "umap", group.
     axis.text = element_blank()
   )
 
+epi_data<-data.frame(Cluster="Epithelial cells",SubCluster=seu_epi$SubCluster,round(seu_epi@reductions$umap@cell.embeddings,2))
+
+
 
 clusters_myeloid <- c(
   "DC_C1_pDC-LILRA4", "DC_C2_cDC1-CCL19", "DC_C3_cDC1-CPVL",  "DC_C4_cDC2-FCER1A",
@@ -107,6 +117,7 @@ plot_ls[['Myeloid']] <- Seurat::DimPlot(object = seu_myeloid, reduction = "umap"
     axis.text = element_blank()
   )
 
+myeloid_data<-data.frame(Cluster="Myeloid cells",SubCluster=seu_myeloid$SubCluster,round(seu_myeloid@reductions$umap@cell.embeddings,2))
 
 clusters_neutro <- c(
   "Neutro_C1-NIBAN1", "Neutro_C2-CD83", "Neutro_C3-TSPO", "Neutro_C4-CFD", "Neutro_C5-RESF1", "Neutro_C6-IFI6", 
@@ -120,7 +131,7 @@ names(colors_neutro) <- clusters_neutro
 seu_neutro <- readRDS("3.Cluster/8.SubAnnotation/6.Neutro/sub_sce_annotation.rds")
 
 plot_ls[['Neutro']] <- Seurat::DimPlot(object = seu_neutro, reduction = "umap", group.by = "SubCluster",
-                                       cols = colors_neutrod, label = T, raster = T) &
+                                       cols = colors_neutro, label = T, raster = T) &
   theme(
     aspect.ratio = 1,
     axis.ticks = element_blank(),
@@ -128,10 +139,30 @@ plot_ls[['Neutro']] <- Seurat::DimPlot(object = seu_neutro, reduction = "umap", 
     axis.text = element_blank()
   )
 
+neutro_data<-data.frame(Cluster="Neutrophils",SubCluster=seu_neutro$SubCluster,round(seu_neutro@reductions$umap@cell.embeddings,2))
+
+
 Fig2B <- cowplot::plot_grid(plot_ls, nrow = 1)
 
+
+tsne_data<-rbind(stroma_data,epi_data)
+tsne_data<-rbind(tsne_data,myeloid_data)
+tsne_data<-rbind(tsne_data,neutro_data)
+
+#tsne_data<-data.frame(Cluster=seu_merge$SubCluster,round(seu_merge@reductions$umap@cell.embeddings,2))
+write.table(tsne_data,"source_data_NC/Figure_2B.txt",sep = "\t",row.names = F,col.names = T)
+
+
+seu_merge <- merge(subset(seu_stroma, features = markers),
+                   y = c(subset(seu_epi, features = markers),
+                         subset(seu_neutro, features = markers),
+                         subset(seu_myeloid, features = markers)
+                         ))
+Seurat::DefaultAssay(seu_merge) <- "RNA"
+seu_merge <- Seurat::ScaleData(seu_merge)
+
 # Figure 2 (C) ----
-Fig2C <- Seurat::DotPlot(seu_merge, assay = "RNA", group.by = 'SubCluster_S', features = markers) &
+Fig2C <- Seurat::DotPlot(seu_merge, assay = "RNA", group.by = 'SubCluster', features = markers) &
   {Seurat::RotatedAxis() +
       scale_color_gradient2(low = "steelblue", mid = "white", high = "firebrick", midpoint = 0) +
       labs(x = NULL, y = NULL,
@@ -139,3 +170,7 @@ Fig2C <- Seurat::DotPlot(seu_merge, assay = "RNA", group.by = 'SubCluster_S', fe
            color = "Average\nExpression")}
 
 
+
+
+dot_data<-Fig2C$data
+write.table(dot_data,"source_data_NC/Figure_2C.txt",sep = "\t",row.names = F,col.names = T)
