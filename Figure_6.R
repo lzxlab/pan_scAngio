@@ -52,6 +52,8 @@ total_table$pos_y<- 1
 total_table$pos_y[which(total_table$Type=="Down")]<- 0
 total_table$Description<-gsub("HALLMARK_","",total_table$Description)
 
+write.table(total_table,"source_data_NC/Figure_6B.txt",sep = "\t",row.names = F,col.names = T)
+
 GSEA_P1<-ggplot(total_table, aes(x=reorder(Description, NES), y=NES,fill=Type))+
   geom_bar(stat="identity",width=0.8,alpha=0.6)+
   scale_fill_manual(values = c("#336699", "#993399"))+
@@ -137,6 +139,7 @@ pcurve <- ggplot(gsdata,aes(x = x,y = runningScore,color = runningScore)) +
 
 pcurve
 
+
 pseg <- ggplot(gsdata,aes(x = x,y = runningScore)) +
   geom_segment(data = gsdata1,
                aes(x = x,xend = x,y = 0,yend = 1),
@@ -203,6 +206,8 @@ prank <- ggplot(gsdata,aes(x = x,y = geneList)) +
   xlab('Rank in Ordered Dataset')
 
 prank
+
+write.table(prank$data,"source_data_NC/Figure_6C.txt",sep = "\t",row.names = F,col.names = T)
 
 
 pall <- aplot::plot_list(gglist = list(pcurve,pseg_ht1,prank),
@@ -359,6 +364,8 @@ vocano_p<-vocano_plot(sorted_ori_de, Sample_1 = 'MCAM+ PCs', Sample_2 = 'MCAM- P
             lfc = lfc, pval = pval,gene_list=c("VEGFA","RGS5","PGF","ANGPT2","HIGD1B","PDGFRA","MCAM","NOTCH3"))
 
 
+out_p<-data.frame(gene_name=rownames(sorted_ori_de),sorted_ori_de)
+write.table(out_p,"source_data_NC/Figure_6A.txt",sep = "\t",row.names = F,col.names = T)
 
 
 
@@ -427,6 +434,10 @@ print (E0771_line_p1)
 
 
 
+write.table(result_table,"source_data_NC/Figure_6E_curve.txt",sep = "\t",row.names = F,col.names = T)
+write.table(tab1[,c(5,4,3)],"source_data_NC/Figure_6E_data.txt",sep = "\t",row.names = F,col.names = T)
+
+
 
 
 
@@ -492,6 +503,8 @@ E0771_weight<-ggplot(data=select_table, aes(Type, mg.ml, color = Type))+
 print(E0771_weight)
 
 
+write.table(select_table[,c(9,2)],"source_data_NC/Figure_6E_weight.txt",sep = "\t",row.names = F,col.names = T)
+
 
 
 select_table<-read.table("Experiments/E0771_red_CD31_plot.csv",sep=",",header=T)
@@ -551,6 +564,9 @@ E0771_CD31<-ggplot(data=select_table, aes(Type, mg.ml, color = Type))+
   scale_y_continuous(expand = c(0,0),limits = c(0,4))
 
 print(E0771_CD31)
+
+out_p1<-data.frame(Gene="CD31",select_table[,c(3,1)])
+
 
 
 select_table<-read.table("Experiments/E0771_green_MCAM_plot.csv",sep=",",header=T)
@@ -612,6 +628,10 @@ E0771_MCAM<-ggplot(data=select_table, aes(Type, mg.ml, color = Type))+
 print(E0771_MCAM)
 
 
+out_p2<-data.frame(Gene="MCAM",select_table[,c(3,1)])
+out_p<-rbind(out_p1,out_p2)
+write.table(out_p,"source_data_NC/Figure_6F.txt",sep = "\t",row.names = F,col.names = T)
+
 
 
 
@@ -672,6 +692,7 @@ CT26_CD31<-ggplot(data=select_table, aes(Type, mg.ml, color = Type))+
   scale_y_continuous(expand = c(0,0),limits = c(0,4))
 
 print(CT26_CD31)
+out_p1<-data.frame(Gene="CD31",select_table[,c(3,1)])
 
 
 select_table<-read.table("Experiments/CT26_green_MCAM_plot.csv",sep=",",header=T)
@@ -731,6 +752,10 @@ CT26_MCAM<-ggplot(data=select_table, aes(Type, mg.ml, color = Type))+
   scale_y_continuous(expand = c(0,0),limits = c(0,4))
 
 print(CT26_MCAM)
+
+out_p2<-data.frame(Gene="MCAM",select_table[,c(3,1)])
+out_p<-rbind(out_p1,out_p2)
+write.table(out_p,"source_data_NC/Figure_6G.txt",sep = "\t",row.names = F,col.names = T)
 
 
 
@@ -836,6 +861,8 @@ cor_p <- ggplot(select_table, aes(x=Angpt2, y=Mcam,color=Type,group = 1))+
 print(cor_p)
 
 
+write.table(select_table[,c(3,1,4)],"source_data_NC/Figure_6H.txt",sep = "\t",row.names = F,col.names = T)
+
 
 
 library(patchwork)
@@ -843,6 +870,6 @@ total_p1<-ggarrange(vocano_p,GSEA_P1,GSEA_P2,ncol=3)
 total_p2<-ggarrange(E0771_line_p1+E0771_weight+plot_layout(ncol = 2,widths = c(1.5,1)),ncol = 2,widths = c(2,1.7))
 total_p3<-E0771_CD31+E0771_MCAM+cor_p+Angpt2_Angpt2+CT26_CD31+CT26_MCAM+plot_layout(ncol=4,widths = c(1,1,1.5,1.5))
 total_p<-ggarrange(total_p1,total_p2,total_p3,ncol = 1,nrow = 3,heights = c(3.2,3,4))
-pdf("14.Figure/Figure6.pdf",width = 12,height = 10.7)
+pdf("14.Figure/6.Figure_6.pdf",width = 14,height = 10.7)
 print(total_p)
 dev.off()
