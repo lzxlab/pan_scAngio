@@ -1077,6 +1077,7 @@ print(total_p)
 dev.off()
 
 
-pdf("14.Figure/3.Figure_3.pdf",width = 2,height = 2)
+pdf("14.Figure/3.Figure_3B.pdf",width = 2,height = 2)
 print(cor_p2)
 dev.off()
+
