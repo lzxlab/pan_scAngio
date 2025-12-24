@@ -575,24 +575,24 @@ write.table(total_tab,"source_data_NC/Figure_S10B_right.txt",sep = "\t",row.name
 
 total_p1<-ggarrange(box_p,box_p1,common.legend = T,legend = "right")
 
-pdf("14.Figure/Figure_S5B.pdf",width = 12,height = 8)
+pdf("14.Figure/Figure_S7B.pdf",width = 12,height = 8)
 print(TCGA_cor_p5)
 dev.off()
 
 
-pdf("14.Figure/Figure_S6.pdf",width = 12,height = 15)
+pdf("14.Figure/Figure_S8.pdf",width = 12,height = 15)
 print(TCGA_cor_p7/TCGA_cor_p6)
 dev.off()
 
 
 
-pdf("14.Figure/Figure_S7.pdf",width = 12,height = 15)
+pdf("14.Figure/Figure_S9.pdf",width = 12,height = 15)
 print(TCGA_cor_p2/TCGA_cor_p1)
 dev.off()
 
 
 
-pdf("14.Figure/Figure_S8.pdf",width = 12,height = 10)
+pdf("14.Figure/Figure_S10.pdf",width = 12,height = 10)
 print(TCGA_cor_p3/total_p1+plot_layout(heights = c(7,3)))
 dev.off()
 
