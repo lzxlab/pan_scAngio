@@ -1,199 +1,210 @@
+library(tidyverse)
+library(patchwork)
 library(Seurat)
-library(data.table)
-library("sscVis")
-library("sscClust")
-library("scPip")
-library(ggplot2)
-library(ggridges)
-library(dplyr)
-library(cowplot)
-library(PCAtools)
-library(ggpubr)
-theme_set(theme_minimal())
-setwd("/home/zhengyq/data/single_cell/18.pan_Endo/PGF/")
+
+setwd("~/data/single_cell/18.pan_Endo/PGF/")
+
+
+
+# Figure S3 (A) ----
+sub_sce1<-readRDS("3.Cluster/13.Annotation/non_immune.rds")
+sub_sce1$Cluster<-sub_sce1$TopCluster
+
+DefaultAssay(sub_sce1)<-"RNA"
+markers1<-c("VEGFA","VEGFB","VEGFC","PGF","ANGPT2","HGF","FGF1" , "FGF2" ,"FGF3" , "FGF4",  "FGF5",  "FGF6" , "FGF7" , "FGF8" , "FGF9" , "FGF11", "FGF12" ,"FGF13" ,"FGF14" ,"FGF16", "FGF17", "FGF18" ,"FGF19"  , "FGF20", "FGF21",
+            "FGF22", "FGF23" ,"MET")
+markers2<-c("FLT1","KDR","FLT4","FGFR1","FGFR2","FGFR3","FGFR4")
+
+marker_list<-c(markers1,markers2)
+sub_sce1<-subset(sub_sce1,features=marker_list)
+
+
+sub_sce2<-readRDS("3.Cluster/13.Annotation/immune.rds")
+sub_sce2$Cluster<-sub_sce2$MidCluster
+
+DefaultAssay(sub_sce2)<-"RNA"
+markers1<-c("VEGFA","VEGFB","VEGFC","PGF","ANGPT2","HGF","FGF1" , "FGF2" ,"FGF3" , "FGF4",  "FGF5",  "FGF6" , "FGF7" , "FGF8" , "FGF9" , "FGF11", "FGF12" ,"FGF13" ,"FGF14" ,"FGF16", "FGF17", "FGF18" ,"FGF19"  , "FGF20", "FGF21",
+            "FGF22", "FGF23" ,"MET")
+markers2<-c("FLT1","KDR","FLT4","FGFR1","FGFR2","FGFR3","FGFR4")
+
+marker_list<-c(markers1,markers2)
+sub_sce2<-subset(sub_sce2,features=marker_list)
+
+
+
+seu_merge<-merge(sub_sce1,sub_sce2)
 
 
 
 
+Figure_S3A <- seu_merge@meta.data %>% 
+  dplyr::filter(Type %in% c('PT','PN')) %>%
+  dplyr::filter(Cancer.type %in% c('COAD','LUAD')) %>% 
+  dplyr::filter(Cluster != 'Epi') %>% 
+  dplyr::mutate(Sample_ID2 = paste(Cancer.type, Patient_ID, Type, sep = '-')) %>% 
+  dplyr::group_by(Cancer.type, Patient_ID) %>%
+  dplyr::filter(dplyr::n_distinct(Type) == 2) %>% 
+  dplyr::ungroup() %>% 
+  droplevels() %>% 
+  dplyr::count(Cancer.type, Patient_ID, Type, Cluster, name = "n_cells") %>%
+  tidyr::complete(Cancer.type, Cluster, fill = list(n_cells = 0)) %>% 
+  dplyr::mutate(n_cells = as.numeric(n_cells)) %>% 
+  dplyr::group_by(Cancer.type, Patient_ID, Type) %>%
+  dplyr::mutate(prop_cells = n_cells / sum(n_cells)) %>%
+  dplyr::ungroup() %>% 
+  dplyr::filter(Cluster == 'Endo') %>%   
+  droplevels() %>% 
+  dplyr::select(Cancer.type, Patient_ID, Type, prop_cells) %>% 
+  tidyr::pivot_wider(id_cols = c(Cancer.type, Patient_ID), names_from = 'Type', values_from = 'prop_cells') %>% 
+  ggplot(aes(x = PN, y = PT)) +
+  facet_wrap(. ~ Cancer.type, scales = 'free') +
+  geom_point(color = 'grey') +
+  geom_smooth(method = "lm", se = F, color = "red") +
+  ggpubr::stat_cor(label.x.npc = "left", label.y.npc = 1, vjust = -0.1, method = "spearman") +
+  scale_x_continuous(labels = scales::percent_format(scale = 100)) +
+  scale_y_continuous(labels = scales::percent_format(scale = 100), expand = expansion(mult = c(0.1, 0.15))) +
+  labs(x = '% among non-Epi in adjacent non-tumor tissues', y = '% among non-Epi\nin tumor tissues') +
+  theme_bw(base_size = 12) +
+  theme(
+    aspect.ratio = 1,
+    panel.grid = element_blank(),
+    strip.background = element_blank(),
+    strip.text = element_text(size = 13),
+    axis.text = element_text(color = 'black')
+  )
+
+data1<-Figure_S3A$data
+write.table(data1,"source_data_NC/Figure_S3A.txt",sep = "\t",row.names = F,col.names = T)
+
+
+# Figure S3 (B) ----
+FigS3B <- seu_merge@meta.data %>% 
+  dplyr::mutate(Type = Type %>% forcats::fct_relevel('PN','PT','mBrain','mLN')) %>% 
+  dplyr::filter(Cluster != 'Epi') %>% 
+  droplevels() %>% 
+  dplyr::mutate(Sample_ID = paste(Cancer.type, Sample_ID, Type, sep = '-')) %>%
+  dplyr::count(Cancer.type, Type, Sample_ID, Cluster, name = "n_cells") %>%
+  tidyr::complete(Cancer.type, Type, Sample_ID, Cluster, fill = list(n_cells = 0)) %>% 
+  dplyr::group_by(Cancer.type, Type, Sample_ID) %>%
+  dplyr::filter(sum(n_cells) > 0) %>%
+  dplyr::mutate(prop_cells = n_cells / sum(n_cells)) %>%
+  dplyr::ungroup() %>% 
+  dplyr::filter(Cluster == 'Endo') %T>% 
+  {wilcox_result <<- stats::wilcox.test(
+    prop_cells ~ Type, 
+    data = dplyr::filter(., Cluster == 'Endo', Type %in% c('PN', 'PT')))
+  } %>% 
+  ggplot(aes(x = Type, y = prop_cells, color = Type))+
+  geom_boxplot(width = 0.8, position = position_dodge(0), fill = 'transparent', outlier.shape = NA) +
+  ggbeeswarm::geom_quasirandom(size = 0.5, alpha = 0.5, width = 0.4, method = "quasirandom") +
+  annotate("segment", x = 1, xend = 2, y = 0.95, yend = 0.95, colour = "black") +
+  annotate("text", x = 1.5, y = 1, label = sprintf("italic(p)==%s", signif(wilcox_result$p.value, 2)), parse = TRUE) +
+  scale_x_discrete(labels = c("Primary\nNormal", "Primary\nTumor", "Lymph Node\nMetastasis", "Brain\nMetastasis")) +
+  scale_y_continuous(labels = scales::percent_format(scale = 100), expand = expansion(mult = c(0.1, 0.15))) +
+  scale_color_manual(values = c("#BD0026","#FEB24C","#02818A","#67A9CF"), name = "Tissue") +
+  labs(x = NULL, y = '% among non-Epi', title = NULL) +
+  theme_classic(base_size = 14) +
+  theme(axis.text = element_text(color = 'black'),
+        axis.text.x = element_text(lineheight = 0.8, angle = 45, vjust = 1, hjust = 1),
+        legend.position = 'none',
+        strip.background = element_blank())
+
+data1<-FigS3B$data
+write.table(data1,"source_data_NC/Figure_S3B.txt",sep = "\t",row.names = F,col.names = T)
 
 
 
-sub_sce<-readRDS("3.Cluster/5.SubAnnotation/4.myeloid/sub_sce_annotation.rds")
-Idents(sub_sce)<-sub_sce$Type
-sub_sce<-subset(sub_sce,idents=c("PN" ,   "PT", "mBrain", "mLN" ))
-sub_sce$Type<-factor(sub_sce$Type,levels=c("PN" ,   "PT", "mBrain", "mLN" ))
-#dir.create("3.Cluster/13.plot/3.myeloid/")
-#sub_sce$SubCluster<-as.character(sub_sce$SubCluster)
-#sub_sce$SubCluster<-gsub("DC_|Neutro_|TAM_|Mono_","",sub_sce$SubCluster)
+# Figure S3 (C) ----
+cancertype_colors <- c("#D0D1E6", "#A6BDDB", "#67A9CF", "#3690C0", "#02818A", "#016C59", "#014636", 
+                       "#FED976", "#FEB24C", "#FD8D3C", "#FC4E2A", "#E31A1C", "#BD0026", "#800026")
 
-sub_sce$SubCluster<-factor(sub_sce$SubCluster,levels=rev(c(       "DC_C1_pDC-LILRA4", "DC_C2_cDC1-CCL19" , "DC_C3_cDC1-CPVL" ,  "DC_C4_cDC2-FCER1A",
-                                                                  "Mono_C1-S100A9"  ,  "Mono_C2-RTEN"    ,  "Mono_C3-IL1B"   ,   "TAM_C1-MARCO"  ,   
-                                                                  "TAM_C2-F13A1"    ,  "TAM_C3-TREM2"   ,   "TAM_C4-APOE"   ,   
-                                                                  "TAM_C5-SPP1"    ,   "TAM_C6-CXCL9"    ,  "TAM_C7-FTL"     ,   "TAM_C8-IL32"  ,    
-                                                                  "TAM_C9-prolif"  , "TAM_C10-MMP9")))       
-markers1<-c("LILRA4","IRF7","PTGDS","CCL19","CCL22","LAMP3","CPVL","CLEC9A","HSPD1",
-            "S100A8","S100A9","VCAN","LYZ","RETN","EREG","IL1B","CXCL8","CCL20",
-            "FABP4","MARCO","LGALS3",
-            "F13A1","FOLR2","STAB1",
-            "TREM2","CCL4L2","CCL3L2",
-            "CTSS","APOE","PLTP",
-            "SPP1","CSTB","ADM",
-            "ISG15","ISG20","CXCL10",
-            "FTL","HBB","CLEC5A",
-            "IL32","CCL5","CD2",
-            "STMN1","TUBB","HMGB2",
-            "MMP9","CTSK","CKB")
+FigS3C <- seu_merge@meta.data %>% 
+  dplyr::filter(Type == 'PT') %>%
+  dplyr::filter(Cluster != 'Epi') %>% 
+  droplevels() %>% 
+  dplyr::mutate(Sample_ID = paste(Cancer.type, Sample_ID, sep = '-')) %>%
+  dplyr::count(Cancer.type, Sample_ID, Cluster, name = "n_cells") %>%
+  tidyr::complete(Cancer.type, Sample_ID, Cluster, fill = list(n_cells = 0)) %>% 
+  dplyr::group_by(Cancer.type, Sample_ID) %>%
+  dplyr::filter(sum(n_cells) > 0) %>%
+  dplyr::mutate(prop_cells = n_cells / sum(n_cells)) %>%
+  dplyr::ungroup() %>% 
+  dplyr::filter(Cluster == 'Endo') %T>% 
+  {anova_result <<- aov(prop_cells ~ Cancer.type, data = .)
+  f_value <<- summary(anova_result)[[1]]$`F value`[1]
+  p_value <<- summary(anova_result)[[1]]$`Pr(>F)`[1]
+  } %>% 
+  {ggplot(., aes(x = Cancer.type, y = prop_cells, color = Cancer.type))+
+      geom_boxplot(width = 0.8, position = position_dodge(0), fill = 'transparent', outlier.shape = NA) +
+      ggbeeswarm::geom_quasirandom(size = 0.8, alpha = 0.9, width = 0.4, method = "quasirandom") +
+      annotate("text", x = 1, y = max(.$prop_cells) * 0.95, parse = TRUE, hjust = 0, 
+               label = sprintf("italic(p)==%s*','~italic(F)==%.2f", signif(p_value, 3), f_value)) +
+      scale_y_continuous(labels = scales::percent_format(scale = 100)) +
+      scale_color_manual(values = cancertype_colors, name = "Cancer Type") +
+      labs(x = NULL, y = '% among non-Epi\nin tumor tissues', title = 'All Endothelial cells') +
+      theme_classic(base_size = 14) +
+      theme(axis.text = element_text(color = 'black'),
+            axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
+            plot.title = element_text(vjust = 0.5, hjust = 0.5),
+            legend.position = 'none',
+            strip.background = element_blank())}
 
-library(viridis)
-Idents(sub_sce)<-sub_sce$SubCluster
-Myeloid_dot_p1<-DotPlot(sub_sce, features = unique(markers1),assay = "RNA",
-                cols = c("grey","blue"))+RotatedAxis()+
-  scale_x_discrete("")+scale_y_discrete("")+
-  scale_color_viridis(discrete=F, option = "D", begin = 0, end=1, direction=1)+
-  theme(plot.title = element_text(size = 12,hjust = 0.5),
-        axis.title.x = element_text(size = 10),
-        axis.title.y = element_text(size = 10),
-        axis.text.x = element_text(size = 10),
-        axis.text.y = element_text(size = 10),
-        legend.title = element_text(size = 10),
-        
-        legend.text = element_text(size = 10))
-
-Myeloid_dot_p1
+data1<-FigS3C$data
+write.table(data1,"source_data_NC/Figure_S3C.txt",sep = "\t",row.names = F,col.names = T)
 
 
+seu_endo<-readRDS("3.Cluster/13.Annotation/1.Endo_annotation_new.rds")
+# Figure S2 (F-K) ----
+
+color_list<-c(RColorBrewer::brewer.pal(9,"PuBuGn")[3:9],RColorBrewer::brewer.pal(9,"YlOrRd")[3:9])
+
+plot_ls <- list()
+
+for (i in c("Artery_EC","Capillary_EC","Venous_EC","Tip_EC","Immature_EC","Other_EC","LEC"))
+{
+  cell=i
+  plot_ls[[i]] <- seu_endo@meta.data %>% 
+    dplyr::filter(Type == 'PT') %>%
+    dplyr::filter(Cluster == 'Endo') %>% 
+    droplevels() %>% 
+    dplyr::mutate(Sample_ID = paste(Cancer.type, Sample_ID, sep = '-')) %>%
+    dplyr::count(Cancer.type, Sample_ID, MidCluster, name = "n_cells") %>%
+    tidyr::complete(Cancer.type, Sample_ID, MidCluster, fill = list(n_cells = 0)) %>% 
+    dplyr::group_by(Cancer.type, Sample_ID) %>%
+    dplyr::filter(sum(n_cells) > 0) %>%
+    dplyr::mutate(prop_cells = n_cells / sum(n_cells)) %>%
+    dplyr::ungroup() %>% 
+    dplyr::filter(MidCluster == i) %T>% 
+    {anova_result <<- aov(prop_cells ~ Cancer.type, data = .)
+    f_value <<- summary(anova_result)[[1]]$`F value`[1]
+    p_value <<- summary(anova_result)[[1]]$`Pr(>F)`[1]
+    } %>% 
+    {ggplot(., aes(x = Cancer.type, y = prop_cells, color = Cancer.type))+
+        geom_boxplot(width = 0.8, position = position_dodge(0), fill = 'transparent', outlier.shape = NA) +
+        ggbeeswarm::geom_quasirandom(size = 0.8, alpha = 0.9, width = 0.4, method = "quasirandom") +
+        annotate("text", x = 1, y = max(.$prop_cells) * 0.95, parse = TRUE, hjust = 0, 
+                 label = sprintf("italic(p)==%s*','~italic(F)==%.2f", signif(p_value, 3), f_value)) +
+        scale_y_continuous(labels = scales::percent_format(scale = 100)) +
+        scale_color_manual(values = color_list, name = "Cancer Type") +
+        labs(x = NULL, y = '% among TECs',title = cell) +
+        theme_classic(base_size = 14) +
+        theme(axis.text = element_text(color = 'black'),
+              axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
+              plot.title = element_text(vjust = 0.5, hjust = 0.5, size = 13),
+              legend.position = 'none',
+              strip.background = element_blank())}
+  
+  
+  print(plot_ls[[i]])
+}
+
+total_tab<-rbind(plot_ls[[1]]$data,plot_ls[[2]]$data)
+total_tab<-rbind(total_tab,plot_ls[[3]]$data)
+total_tab<-rbind(total_tab,plot_ls[[4]]$data)
+total_tab<-rbind(total_tab,plot_ls[[5]]$data)
+total_tab<-rbind(total_tab,plot_ls[[6]]$data)
 
 
+FigF_K <- cowplot::plot_grid(plot_ls, nrow = 2)
 
-
-
-
-sub_sce<-readRDS("3.Cluster/5.SubAnnotation/5.Epi//sub_sce_annotation.rds")
-markers<-unique(c( "TFF1"  ,  "PIP"    , "CXCL14" , "UBE2C"  , "TUBA1B" , "CDC20"  , "PIGR", "SLPI"  ,  "WFDC2"  , "REG1A",   "MT1G" ,  
-                   "REG3A" ,  "S100A2" , "NDRG1"  , "SLC2A1" , "SPRR2E" , "SPRR2A",  "SPRR3"  , "FABP5" ,  "KRT16"  , "LY6D"  ,  "SAA1" ,  
-                   "MMP7"  ,  "LTF"    , "TNC"  , "TAGLN" ,  "LAMC2"  , "SST"   ,  "CPB1"   , "GAST"  ,  "HSPA1B" , "ATF3"  ,  "FOS" ,   
-                   "SPARC" ,  "VIM"    , "COL1A1" , "IGLC2"  , "SRGN"  ,  "IGKC"  ,  "CXCL10"  ,"ISG15" ,  "IFITM1" , "A2M"   ,  "MIA" ,   
-                   "SFRP1" ,  "BCAM"   , "GPC3"   , "KRT15" ))
-sub_sce$SubCluster<-factor(sub_sce$SubCluster,levels=rev(c(    "Epi_C1-TFF1" , "Epi_C2-prolif", "Epi_C3-PIGR"  , "Epi_C4-REG1A" , "Epi_C5-NDRG1" , "Epi_C6-SPRR2A" ,"Epi_C7-LY6D" , 
-                                                               "Epi_C8-SAA1" ,  "Epi_C9-TNC"  , "Epi_C10-SST"  , "Epi_C11-ATF3" , "Epi_C12-EMT" ,  "Epi_C13-IGHG1", "Epi_C14-ISG" ,  "Epi_C15-A2M" , 
-                                                               "Epi_C16-BCAM" )))     
-Idents(sub_sce)<-sub_sce$SubCluster
-DefaultAssay(sub_sce)<-"RNA"
-sub_sce<-ScaleData(sub_sce)
-
-library(viridis)
-Idents(sub_sce)<-sub_sce$SubCluster
-Epi_dot_p1<-DotPlot(sub_sce, features = unique(markers),assay = "RNA",
-                cols = c("grey","blue"))+RotatedAxis()+
-  scale_x_discrete("")+scale_y_discrete("")+
-  scale_color_viridis(discrete=F, option = "D", begin = 0, end=1, direction=1)+
-  theme(plot.title = element_text(size = 12,hjust = 0.5),
-        axis.title.x = element_text(size = 10),
-        axis.title.y = element_text(size = 10),
-        axis.text.x = element_text(size = 10),
-        axis.text.y = element_text(size = 10),
-        legend.title = element_text(size = 10),
-        
-        legend.text = element_text(size = 10))
-
-Epi_dot_p1
-
-
-
-
-
-
-
-
-
-
-
-sub_sce<-readRDS("3.Cluster/8.SubAnnotation/6.Neutro/sub_sce_annotation.rds")
-Idents(sub_sce)<-sub_sce$Type
-sub_sce<-subset(sub_sce,idents=c("N" ,   "T", "PB"  ))
-sub_sce$Type<-factor(sub_sce$Type,levels=c("N" ,   "T", "PB"  ))
-#dir.create("3.Cluster/13.plot/3.myeloid/")
-#sub_sce$SubCluster<-as.character(sub_sce$SubCluster)
-#sub_sce$SubCluster<-gsub("DC_|Neutro_|TAM_|Mono_","",sub_sce$SubCluster)
-
-sub_sce$SubCluster<-factor(sub_sce$SubCluster,levels=rev(c(   "Neutro_C1-NIBAN1", "Neutro_C2-CD83"  , "Neutro_C3-TSPO" ,  "Neutro_C4-CFD" ,  
-                                                              "Neutro_C5-RESF1" , "Neutro_C6-IFI6"  , "Neutro_C7-THBS1" , "Neutro_C8-PPDPF", 
-                                                              "Neutro_C9-EGR1")))       
-markers1<-c("NIBAN1"  ,  "GNG10"    , "CLEC12A" ,  "CD83"    ,  "PLIN2"  ,   "CCL3L1"  , 
-            "TSPO" ,  "TXN"     ,  "CST7"   ,   "CFD"    ,   "FAM129A",   "KIAA1551", 
-            "RESF1"   ,  "PCBP1-AS1", "MT-ND2"  ,  "IFI6"  ,   "MX1"    ,   "IFIT1"  ,  
-            "HLA-DPA1" , "THBS1"    ,  "CCL18"  ,   "PPDPF"  ,   "SFTPB"  ,   "IGFBP7" ,  
-            "FOS"     ,  "EGR1"    ,  "NFKBIZ")
-
-library(viridis)
-Idents(sub_sce)<-sub_sce$SubCluster
-Neutro_dot_p1<-DotPlot(sub_sce, features = unique(markers1),assay = "RNA",
-                cols = c("grey","blue"))+RotatedAxis()+
-  scale_x_discrete("")+scale_y_discrete("")+
-  scale_color_viridis(discrete=F, option = "D", begin = 0, end=1, direction=1)+
-  theme(plot.title = element_text(size = 12,hjust = 0.5),
-        axis.title.x = element_text(size = 10),
-        axis.title.y = element_text(size = 10),
-        axis.text.x = element_text(size = 10),
-        axis.text.y = element_text(size = 10),
-        legend.title = element_text(size = 10),
-        
-        legend.text = element_text(size = 10))
-
-Neutro_dot_p1
-
-
-
-
-
-
-
-sub_sce<-readRDS("3.Cluster/13.Annotation/2.Stromal_annotation.rds")
-markers<-unique(c("POSTN","COL1A1","FAP",
-                  "SFRP4","CXCL14","ELN",
-                  "APOD","IGF1","THBS4",
-                  "MMP3","CXCL8","IL24",
-                  "CCL2","CCL11","PTGDS",
-                  "PI16","MFAP5","CLU",
-                  "SOD2","CXCL2","FOSL1",
-                  "CXCL12","MFAP4","ADH1B",
-                  "HBB",
-                  "IER2","EGR1","FOS",
-                  "CD74","HLA-DRA","HLA-DRB1",
-                  "ACTG2","DES","MYLK",
-                  "MYH11","ADIRF","ACTA2",
-                  "RGS5","CCL19","CD36",
-                  "MCAM","THY1","MKI67" ))
-sub_sce$SubCluster<-factor(sub_sce$SubCluster,levels=rev(c(   "mCAF_C1-POSTN"  ,   "mCAF_C2-SFRP4",  "iCAF_C1-IGF1"    ,  "iCAF_C2-MMP3"     , "iCAF_C3-CCL2"    ,     "NF_C1-PI16"     ,  
-                                                              "NF_C2-SOD2"       , "NF_C3-CXCL12"     , "NF_C4-HBB"       ,  "NF_C5-IER"      ,   "NF_C6-CD74"   ,     "PVL_C1_mPC-ACTG2" ,
-                                                              "PVL_C2_mPC-MYH11" , "PVL_C3_imPC-CD36"  ,"PVL_C4_imPC-MCAM", "PVL_C5-prolif")))     
-Idents(sub_sce)<-sub_sce$SubCluster
-DefaultAssay(sub_sce)<-"RNA"
-sub_sce<-ScaleData(sub_sce)
-
-library(viridis)
-Idents(sub_sce)<-sub_sce$SubCluster
-Stromal_dot_p1<-DotPlot(sub_sce, features = unique(markers),assay = "RNA",
-                cols = c("grey","blue"))+RotatedAxis()+
-  scale_x_discrete("")+scale_y_discrete("")+
-  scale_color_viridis(discrete=F, option = "D", begin = 0, end=1, direction=1)+
-  theme(plot.title = element_text(size = 12,hjust = 0.5),
-        axis.title.x = element_text(size = 10),
-        axis.title.y = element_text(size = 10),
-        axis.text.x = element_text(size = 10),
-        axis.text.y = element_text(size = 10),
-        legend.title = element_text(size = 10),
-        
-        legend.text = element_text(size = 10))
-
-Stromal_dot_p1
-
-
-
-total_p1<-Stromal_dot_p1+Epi_dot_p1+Myeloid_dot_p1+Neutro_dot_p1+plot_layout(ncol = 1,nrow = 4,
-                                                                             heights = c(4,4,4,3))
-
-pdf("14.Figure/Figure_S3_markers.pdf",width = 12,height = 15)
-print(total_p1)
-dev.off()
-
+write.table(total_tab,"source_data_NC/Figure_S3D-I.txt",sep = "\t",row.names = F,col.names = T)
