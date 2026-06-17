@@ -11,6 +11,8 @@ library(msigdbr)
 library(ggrepel)
 library(RColorBrewer)
 
+
+
 ##NC_vs_KD
 ##siMARCO_vs_NC
 siMARCO_vs_NC<-read.table("~/data/lzx_project/21.PC_CD46/5.DEG/Pos_vs_Neg.edgeR.xls",sep="\t",header = T,row.names = 1)
@@ -376,6 +378,22 @@ tab<-read.table("Experiments/E0771growth_volume.csv",sep=",",header = T)
 
 g1<-tab$X17[which(tab$group=="igg")]
 g2<-tab$X17[which(tab$group=="anti-vegfr2")]
+
+g1<-tab$X17[which(tab$group=="igg")]
+g2<-tab$X17[which(tab$group=="anti-vegfr2")]
+g3<-tab$X17[which(tab$group=="anti-mcam")]
+g4<-tab$X17[which(tab$group=="combine")]
+
+
+
+p1<-t.test(g1,g3)$p.value
+p2<-t.test(g1,g2)$p.value
+p3<-t.test(g1,g4)$p.value
+p4<-t.test(g2,g4)$p.value
+
+p.adjust(c(p1,p2,p3,p4),method = "BH")
+
+
 color_list<-c("#E41A1C","#377EB8","#984EA3",  "#4DAF4A" , "#FF7F00" ,"#A65628","#F781BF" ,"#999999")
 
 
@@ -451,6 +469,22 @@ select_table$Type[select_table$group=="anti-mcam"]<-"M"
 select_table$Type[select_table$group=="combine"]<-"αV+M"
 select_table$Type<-factor(select_table$Type,levels=c("IgG" , "M" ,"αV", "αV+M"))
 
+
+g1<-select_table$weight[which(select_table$group=="igg")]
+g2<-select_table$weight[which(select_table$group=="anti-vegfr2")]
+g3<-select_table$weight[which(select_table$group=="anti-mcam")]
+g4<-select_table$weight[which(select_table$group=="combine")]
+
+
+
+p1<-t.test(g1,g3)$p.value
+p2<-t.test(g3,g4)$p.value
+p3<-t.test(g1,g4)$p.value
+p4<-t.test(g2,g4)$p.value
+p.adjust(c(p1,p2,p3,p4),method = "BH")
+
+
+
 ##Nodes
 
 select_table$mg.ml<-select_table$weight
@@ -515,6 +549,20 @@ select_table$Type[select_table$group=="combine"]<-"αVEGFR2+MCAM-ADC"
 select_table$Type<-factor(select_table$Type,levels=c("IgG" , "MCAM-ADC" ,"αVEGFR2", "αVEGFR2+MCAM-ADC"))
 
 
+g1<-select_table$X.Area[which(select_table$group=="igg")]
+g2<-select_table$X.Area[which(select_table$group=="anti-vegfr2")]
+g3<-select_table$X.Area[which(select_table$group=="anti-mcam")]
+g4<-select_table$X.Area[which(select_table$group=="combine")]
+
+
+
+p1<-t.test(g1,g3)$p.value
+p2<-t.test(g3,g4)$p.value
+p3<-t.test(g1,g4)$p.value
+p4<-t.test(g2,g4)$p.value
+p.adjust(c(p1,p2,p3,p4),method = "BH")
+
+
 ##Nodes
 select_table$mg.ml<-select_table$X.Area
 
@@ -575,6 +623,23 @@ select_table$Type[select_table$group=="anti-vegfr2"]<-"αVEGFR2"
 select_table$Type[select_table$group=="anti-mcam"]<-"MCAM-ADC"
 select_table$Type[select_table$group=="combine"]<-"αVEGFR2+MCAM-ADC"
 select_table$Type<-factor(select_table$Type,levels=c("IgG" , "MCAM-ADC" ,"αVEGFR2", "αVEGFR2+MCAM-ADC"))
+
+
+
+g1<-select_table$X.Area[which(select_table$group=="igg")]
+g2<-select_table$X.Area[which(select_table$group=="anti-vegfr2")]
+g3<-select_table$X.Area[which(select_table$group=="anti-mcam")]
+g4<-select_table$X.Area[which(select_table$group=="combine")]
+
+
+
+p1<-t.test(g1,g3)$p.value
+p2<-t.test(g3,g4)$p.value
+p3<-t.test(g1,g4)$p.value
+p4<-t.test(g2,g4)$p.value
+p.adjust(c(p1,p2,p3,p4),method = "BH")
+
+
 
 
 ##Nodes
@@ -767,6 +832,22 @@ select_table$Type[select_table$group=="combine"]<-"αVEGFR2+MCAM-ADC"
 select_table$Type<-factor(select_table$Type,levels=c("IgG" , "MCAM-ADC" ,"αVEGFR2", "αVEGFR2+MCAM-ADC"))
 
 
+g1<-select_table$X.Area[which(select_table$group=="igg")]
+g2<-select_table$X.Area[which(select_table$group=="anti-vegfr2")]
+g3<-select_table$X.Area[which(select_table$group=="anti-mcam")]
+g4<-select_table$X.Area[which(select_table$group=="combine")]
+
+
+
+p1<-t.test(g1,g3)$p.value
+p2<-t.test(g3,g4)$p.value
+p3<-t.test(g1,g4)$p.value
+p4<-t.test(g2,g4)$p.value
+p5<-t.test(g2,g3)$p.value
+p.adjust(c(p1,p2,p3,p4,p5),method = "BH")
+
+
+
 ##Nodes
 select_table$mg.ml<-select_table$X.Area
 
@@ -870,6 +951,352 @@ total_p1<-ggarrange(vocano_p,GSEA_P1,GSEA_P2,ncol=3)
 total_p2<-ggarrange(E0771_line_p1+E0771_weight+plot_layout(ncol = 2,widths = c(1.5,1)),ncol = 2,widths = c(2,1.7))
 total_p3<-E0771_CD31+E0771_MCAM+cor_p+Angpt2_Angpt2+CT26_CD31+CT26_MCAM+plot_layout(ncol=4,widths = c(1,1,1.5,1.5))
 total_p<-ggarrange(total_p1,total_p2,total_p3,ncol = 1,nrow = 3,heights = c(3.2,3,4))
-pdf("14.Figure/6.Figure_6.pdf",width = 14,height = 10.7)
+pdf("14.Figure/10.Figure11.pdf",width = 14,height = 10.7)
 print(total_p)
+dev.off()
+
+
+
+##safety
+tab<-read.table("Effects_and_safety/body_weight.csv",sep=",",header = T)
+
+g1<-tab$X15[which(tab$group=="igg")]
+g2<-tab$X15[which(tab$group=="anti-vegfr2")]
+
+g1<-tab$X15[which(tab$group=="igg")]
+g3<-tab$X15[which(tab$group=="anti-mcam")]
+g4<-tab$X15[which(tab$group=="combine")]
+
+
+
+p1<-t.test(g1,g3)$p.value
+p3<-t.test(g1,g4)$p.value
+
+p.adjust(c(p1,p3),method = "BH")
+
+
+color_list<-c("#E41A1C","#377EB8","#984EA3",  "#4DAF4A" , "#FF7F00" ,"#A65628","#F781BF" ,"#999999")
+
+
+#tab<-tab[,c(1,3:7)]
+library(reshape2)
+tab1<-melt(tab,value.name = "Value",id.vars = c("group"))
+tab1$Time<-as.numeric(gsub("X","",tab1$variable))
+
+
+##
+color_list<-c("#E41A1C", "#377EB8", "#984EA3", "#FF7F00" ,"#A65628","#F781BF" ,"#999999")
+
+
+tab1$Group<-"IgG"
+tab1$Group[tab1$group=="anti-mcam"]<-"MCAM-ADC"
+tab1$Group[tab1$group=="combine"]<-"αVEGFR2+MCAM-ADC"
+tab1$Group<-factor(tab1$Group,levels=c("IgG" , "MCAM-ADC" , "αVEGFR2+MCAM-ADC"))
+
+library(dplyr)
+result_table<-dplyr::summarize(group_by(tab1,Group,Time),
+                               mean_var=mean(Value),
+                               SD=sd(Value),
+                               N_N=n(),  
+                               se=SD/sqrt(N_N),  
+                               upper_limit=mean_var+SD,  
+                               lower_limit=mean_var-SD)
+
+
+
+E0771_Body_p1 <- ggplot(result_table, aes(x=Time, y=mean_var, color=Group,group=Group))+
+  geom_point(data = result_table,aes(x=Time, y=mean_var),pch=15,size=1.5)+
+  geom_line(size=0.5)+
+  geom_errorbar(data = result_table,aes(ymin = lower_limit, ymax=upper_limit), #误差条表示均值±标准差
+                width=0.2, #误差条末端短横线的宽度
+                alpha = 0.7,
+                size=0.5) +
+  scale_color_manual(values = color_list)+
+  #geom_hline(yintercept = 1,size=0.5)+
+  # ylim(c(0,3))+
+  ylab("Body weight (g)")+
+  xlab("Time (Days)")+
+  ggtitle("Mouse body weight")+
+  theme_classic2()+
+  theme(legend.position=c(0.45,0.75),
+        plot.title = element_text(size = 10,hjust = 0.5),
+        axis.title.x = element_text(size = 10),
+        axis.title.y = element_text(size = 10),
+        axis.text.x = element_text(size = 10),
+        axis.text.y = element_text(size = 10),
+        legend.title = element_text(size = 10),
+        
+        legend.text = element_text(size = 10)) +
+  scale_y_continuous(expand = c(0,0),limits = c(18,26),breaks =seq(18,26,2))
+print (E0771_Body_p1)
+
+
+
+
+##
+color_list<-c("#E41A1C", "#377EB8", "#4DAF4A" ,"#984EA3", "#FF7F00" ,"#A65628","#F781BF" ,"#999999")
+
+select_table<-read.table("Effects_and_safety/Blood_CBC.csv",sep=",",header=T)
+select_table1<-select_table[which(select_table$group=="igg"),]
+select_table1<-dplyr::summarize(group_by(select_table1,Cell_type),base_value=mean(Value))
+select_table<-merge(select_table,select_table1,by="Cell_type")
+select_table$Adj_var<-select_table$Value/select_table$base_value
+select_table$Type<-"IgG"
+select_table$Type[select_table$group=="anti-vegfr2"]<-"αV"
+select_table$Type[select_table$group=="anti-mcam"]<-"M1"
+select_table$Type[select_table$group=="combine"]<-"αV+M"
+select_table$Type<-factor(select_table$Type,levels=c("IgG" , "M1" , "αV+M"))
+
+
+g1<-select_table$Value[which(select_table$group=="igg")]
+g3<-select_table$Value[which(select_table$group=="anti-mcam")]
+g4<-select_table$Value[which(select_table$group=="combine")]
+
+
+
+p1<-t.test(g1,g3)$p.value
+p2<-t.test(g3,g4)$p.value
+p3<-t.test(g1,g4)$p.value
+p.adjust(c(p1,p2,p3),method = "BH")
+
+
+
+##Nodes
+
+select_table$mg.ml<-select_table$Adj_var
+
+data1<-dplyr::summarize(group_by(select_table,Type,Cell_type),
+                        mean.var=mean(mg.ml),
+                        sd=sd(mg.ml),
+                        lower.ci=mean(mg.ml)-sd(mg.ml),
+                        upper.ci=mean(mg.ml)+sd(mg.ml)
+)
+data1$mg.ml<-data1$mean.var
+E0771_CBC<-ggplot(data=select_table, aes(Cell_type, mg.ml, color = Type,group = Type))+
+  stat_compare_means(label = "p.format", 
+                     method = "t.test",label.y = 1.32,size=3,ref.group = "M1")+
+  
+  geom_bar(data=data1,aes(x=Cell_type, y=mg.ml,color = Type),
+           stat = "identity",size = 1.1,width = 0.7,fill=NA, position = position_dodge(width = 1* 0.9))+
+  geom_errorbar(data=data1,aes(x=Cell_type,ymin = lower.ci, ymax=upper.ci),
+                stat = "identity", position = position_dodge(width = 1* 0.9), #误差条表示均值±标准差
+                width=0.1, #误差条末端短横线的宽度
+                #position=position_dodge(0), 
+                color="black",
+                alpha = 0.7,
+                size=0.7) +
+  theme_classic()+
+  
+  scale_color_manual(values =c("#E41A1C", "#377EB8", "#984EA3"))+
+  labs(x = 'Type', y = 'Relative ratio to control group',title=paste ("Complete Blood Count")) +
+  #theme(panel.grid = element_blank(), panel.background = element_rect(color = 'black', fill = 'transparent'), strip.text = element_text(size = 12)) +
+  
+  theme(plot.title = element_text(size = 10,hjust = 0.5),
+        axis.title.x = element_text(size = 10),
+        axis.line = element_blank(),
+        axis.title.y = element_text(size = 10),
+        axis.text.x = element_text(size = 10),
+        axis.text.y = element_text(size = 10),
+        legend.title = element_text(size = 10),
+        legend.position = "bottom",
+        legend.text = element_text(size = 10),
+        panel.border = element_rect(fill=NA,color="grey",size=0.5),
+        strip.background = element_blank())+
+  scale_y_continuous(expand = c(0,0),limits = c(0,1.3))
+
+print(E0771_CBC)
+
+
+
+
+
+##
+color_list<-c("#E41A1C", "#377EB8", "#4DAF4A" ,"#984EA3", "#FF7F00" ,"#A65628","#F781BF" ,"#999999")
+
+select_table<-read.table("Effects_and_safety/Blood_liver_renal_func.csv",sep=",",header=T)
+select_table1<-select_table[which(select_table$group=="igg"),]
+select_table1<-dplyr::summarize(group_by(select_table1,Marker_type),base_value=mean(Value))
+select_table<-merge(select_table,select_table1,by="Marker_type")
+select_table$Adj_var<-select_table$Value/select_table$base_value
+select_table$Type<-"IgG"
+select_table$Type[select_table$group=="anti-vegfr2"]<-"αV"
+select_table$Type[select_table$group=="anti-mcam"]<-"M1"
+select_table$Type[select_table$group=="combine"]<-"αV+M"
+select_table$Type<-factor(select_table$Type,levels=c("IgG" , "M1" , "αV+M"))
+
+
+g1<-select_table$Value[which(select_table$group=="igg")]
+g3<-select_table$Value[which(select_table$group=="anti-mcam")]
+g4<-select_table$Value[which(select_table$group=="combine")]
+
+
+
+p1<-t.test(g1,g3)$p.value
+p2<-t.test(g3,g4)$p.value
+p3<-t.test(g1,g4)$p.value
+p.adjust(c(p1,p2,p3),method = "BH")
+
+
+
+##Nodes
+
+select_table$mg.ml<-select_table$Adj_var
+
+data1<-dplyr::summarize(group_by(select_table,Type,Marker_type),
+                        mean.var=mean(mg.ml),
+                        sd=sd(mg.ml),
+                        lower.ci=mean(mg.ml)-sd(mg.ml),
+                        upper.ci=mean(mg.ml)+sd(mg.ml)
+)
+data1$mg.ml<-data1$mean.var
+E0771_Liver<-ggplot(data=select_table, aes(Marker_type, mg.ml, color = Type,group = Type))+
+  stat_compare_means(label = "p.format", 
+                     method = "t.test",label.y = 1.32,size=3,ref.group = "M1")+
+  
+  geom_bar(data=data1,aes(x=Marker_type, y=mg.ml,color = Type),
+           stat = "identity",size = 1.1,width = 0.7,fill=NA, position = position_dodge(width = 1* 0.9))+
+  geom_errorbar(data=data1,aes(x=Marker_type,ymin = lower.ci, ymax=upper.ci),
+                stat = "identity", position = position_dodge(width = 1* 0.9), #误差条表示均值±标准差
+                width=0.1, #误差条末端短横线的宽度
+                #position=position_dodge(0), 
+                color="black",
+                alpha = 0.7,
+                size=0.7) +
+  theme_classic()+
+  
+  scale_color_manual(values =c("#E41A1C", "#377EB8", "#984EA3"))+
+  labs(x = 'Type', y = 'Relative ratio to control group',title=paste ("Liver and kidney function test")) +
+  #theme(panel.grid = element_blank(), panel.background = element_rect(color = 'black', fill = 'transparent'), strip.text = element_text(size = 12)) +
+  
+  theme(plot.title = element_text(size = 10,hjust = 0.5),
+        axis.title.x = element_text(size = 10),
+        axis.line = element_blank(),
+        axis.title.y = element_text(size = 10),
+        axis.text.x = element_text(size = 10),
+        axis.text.y = element_text(size = 10),
+        legend.title = element_text(size = 10),
+        legend.position = "none",
+        legend.text = element_text(size = 10),
+        panel.border = element_rect(fill=NA,color="grey",size=0.5),
+        strip.background = element_blank())+
+  scale_y_continuous(expand = c(0,0),limits = c(0,1.35))
+
+print(E0771_Liver)
+
+
+
+
+##
+color_list<-c("#E41A1C", "#377EB8","#984EA3", "#FF7F00" ,"#A65628","#F781BF" ,"#999999")
+
+select_table<-read.table("Effects_and_safety/Evans_Blue.csv",sep=",",header=T)
+
+select_table$Type<-"IgG"
+select_table$Type[select_table$group=="anti-mcam"]<-"M"
+select_table$Type<-factor(select_table$Type,levels=c("IgG" , "M" ))
+
+
+g1<-select_table$singal[which(select_table$group=="igg")]
+g3<-select_table$singal[which(select_table$group=="anti-mcam")]
+
+
+
+p1<-t.test(g1,g3)$p.value
+p2<-t.test(g3,g4)$p.value
+p3<-t.test(g1,g4)$p.value
+p.adjust(c(p1,p2,p3),method = "BH")
+
+
+
+##Nodes
+
+select_table$mg.ml<-select_table$singal
+
+data1<-dplyr::summarize(group_by(select_table,Type),
+                        mean.var=mean(mg.ml),
+                        sd=sd(mg.ml),
+                        lower.ci=mean(mg.ml)-sd(mg.ml),
+                        upper.ci=mean(mg.ml)+sd(mg.ml)
+)
+data1$mg.ml<-data1$mean.var
+E0771_brain<-ggplot(data=select_table, aes(Type, mg.ml, color = Type,group = Type))+
+  stat_compare_means(label = "p.format", 
+                     method = "t.test",label.y = 0.06,size=3)+
+  
+  geom_bar(data=data1,aes(x=Type, y=mg.ml,color = Type),
+           stat = "identity",size = 1.1,width = 0.7,fill=NA, position = position_dodge(width = 1* 0.9))+
+  geom_errorbar(data=data1,aes(x=Type,ymin = lower.ci, ymax=upper.ci),
+                stat = "identity", position = position_dodge(width = 1* 0.9), #误差条表示均值±标准差
+                width=0.1, #误差条末端短横线的宽度
+                #position=position_dodge(0), 
+                color="black",
+                alpha = 0.7,
+                size=0.7) +
+  theme_classic()+
+  
+  scale_color_manual(values =c("#E41A1C", "#377EB8","#984EA3"))+
+  labs(x = 'Type', y = 'Fluorescence Intensity\nEvans blue (620mm)',title=paste ("Mouce BBB integrity")) +
+  #theme(panel.grid = element_blank(), panel.background = element_rect(color = 'black', fill = 'transparent'), strip.text = element_text(size = 12)) +
+  
+  theme(plot.title = element_text(size = 10,hjust = 0.5),
+        axis.title.x = element_text(size = 10),
+        axis.line = element_blank(),
+        axis.title.y = element_text(size = 10),
+        axis.text.x = element_text(size = 10),
+        axis.text.y = element_text(size = 10),
+        legend.title = element_text(size = 10),
+        legend.position = "none",
+        legend.text = element_text(size = 10),
+        panel.border = element_rect(fill=NA,color="grey",size=0.5),
+        strip.background = element_blank())+
+  scale_y_continuous(expand = c(0,0),limits = c(0,0.08))
+
+print(E0771_brain)
+
+library(patchwork)
+total_p1<-E0771_Body_p1+E0771_CBC+E0771_Liver+E0771_brain+plot_layout(widths = c(0.7,0.9,0.7,0.3),ncol = 4)
+pdf("Effects_and_safety/Satety.pdf",width = 12,height = 3.5)
+print(total_p1)
+dev.off()
+
+
+##IC50
+library(drc)
+library(ggplot2)
+library(ggpubr)
+library(RColorBrewer)
+
+theme_set(theme_minimal())
+setwd("/home/zhengyq/data/single_cell/18.pan_Endo/PGF/")
+
+
+
+df <- read.table("Effects_and_safety/Effects.txt",header = T)
+df$Response <- df$Response*100
+
+df.m1 <- drm(Response ~ Dose,Group, data = df,
+             fct = LL.5(fixed = c(NA,0,100,NA,1),names = c("b", "c", "d", "EC50", "f")))
+
+pdf("Effects_and_safety/IC50.pdf",width = 5,height = 5)
+par(lwd=2, cex=1, font.lab=2)
+
+plot(df.m1, broken=F, bp=.1, bty="o",col = brewer.pal(9,"Set1")[1:length(unique(df$Group))],
+     
+     lty=c(1,2),pch=c(15,17),legend = T,add=F,
+     
+     xlab="Dose", ylab="Cell viability")
+
+
+
+##提取IC50数值
+
+IC50.1 <- round(summary(df.m1)$coefficients[3, 1], digits = 3)
+
+IC50.2 <- round(summary(df.m1)$coefficients[4, 1], digits = 3)
+
+text(x = 1,y = 30,
+     labels = paste0("IC50.1 = ",IC50.1,"\n",
+                    "IC50.2 = ",IC50.2
+                    ),
+     cex = 1)
 dev.off()
