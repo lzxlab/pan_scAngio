@@ -750,10 +750,10 @@ for (i in 1:length(project_list)){
   )
   merged_matrix$gene_level<-"Low"
   merged_matrix$gene_level[merged_matrix$gene1>res.cut$cutpoint$cutpoint]<-"High"
-  merged_matrix$gene_level<-"Low"
-  merged_matrix$gene_level[merged_matrix$gene1>quantile(merged_matrix$gene1,1/3)]<-"Mid"
-  merged_matrix$gene_level[merged_matrix$gene1>quantile(merged_matrix$gene1,2/3)]<-"High"
-  merged_matrix<-merged_matrix[which(merged_matrix$gene_level!="Mid"),]
+  #merged_matrix$gene_level<-"Low"
+  #merged_matrix$gene_level[merged_matrix$gene1>quantile(merged_matrix$gene1,1/3)]<-"Mid"
+  #merged_matrix$gene_level[merged_matrix$gene1>quantile(merged_matrix$gene1,2/3)]<-"High"
+  #merged_matrix<-merged_matrix[which(merged_matrix$gene_level!="Mid"),]
   
   out_tab<-merged_matrix[,c("Tumor_ID","project_id","gene1","OS","OS.Time","gene_level")]
   total_out<-rbind(total_out,out_tab)
