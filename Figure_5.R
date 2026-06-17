@@ -189,11 +189,11 @@ res.cut <- surv_cutpoint(merged_matrix, #数据集
                          variables = c("gene") #需要计算的数据列名
 )
 merged_matrix$gene_level<-"Low"
-#merged_matrix$gene_level[merged_matrix$gene>res.cut$cutpoint$cutpoint]<-"High"
-#merged_matrix$gene_level<-factor(merged_matrix$gene_level,levels = c("Low","High"))
-merged_matrix$gene_level[merged_matrix$gene>quantile(merged_matrix$gene,1/3)]<-"Mid"
-merged_matrix$gene_level[merged_matrix$gene>quantile(merged_matrix$gene,2/3)]<-"High"
-merged_matrix<-merged_matrix[which(merged_matrix$gene_level!="Mid"),]
+merged_matrix$gene_level[merged_matrix$gene>res.cut$cutpoint$cutpoint]<-"High"
+merged_matrix$gene_level<-factor(merged_matrix$gene_level,levels = c("Low","High"))
+#merged_matrix$gene_level[merged_matrix$gene>quantile(merged_matrix$gene,1/3)]<-"Mid"
+#merged_matrix$gene_level[merged_matrix$gene>quantile(merged_matrix$gene,2/3)]<-"High"
+#merged_matrix<-merged_matrix[which(merged_matrix$gene_level!="Mid"),]
 merged_matrix$gene_level<-factor(merged_matrix$gene_level,levels = c("Low","High"))
 
 
