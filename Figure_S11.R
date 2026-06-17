@@ -1,332 +1,273 @@
 library(Seurat)
 library(data.table)
-library("sscVis")
-library("sscClust")
-library("scPip")
 library(ggplot2)
-library(ggridges)
 library(dplyr)
 library(cowplot)
 library(PCAtools)
-library(monocle)
 library(ggpubr)
 library(patchwork)
 library(cowplot)
+library(RColorBrewer)
+library(clusterProfiler)
+library(msigdbr)
+library(SummarizedExperiment)
+library(SingleCellExperiment)
+library(slingshot)
 theme_set(theme_minimal())
 setwd("/home/zhengyq/data/single_cell/18.pan_Endo/PGF/")
 
+color1 <- colorRampPalette(brewer.pal(11, "Spectral")[-6])(100)
 
 
-##Stack plot
+combined <- readRDS("3.Cluster/13.Annotation/3.PC_annotation_new.rds")
+test<-readRDS("5.monocle2/6.PC//monocle2.RDS")
+sample_ID<-colnames(test)
+combined$merge_var<-"Drop"
+combined$merge_var[sample_ID]<-"Keep"
+Idents(combined)<-combined$merge_var
+combined<-subset(combined,idents="Keep")
 
-sub_sce<-readRDS("3.Cluster/13.Annotation/3.PC_annotation_new.rds")
-sub_sce$Type[which(sub_sce$Type!="PN")]<-"Tumor"
-sub_sce$Type[which(sub_sce$Type=="PN")]<-"Normal"
-
-dir.create("3.Cluster/13.plot/1.total/")
-
-combined<-sub_sce
-
-##All cell type
-tmp_table<-data.frame(Cluster=combined$SubCluster,Type=combined$Type,Sample_ID=combined$Sample_ID,num=1)
-tmp_table<-na.omit(tmp_table)
-sum_table1<-dplyr::summarise(group_by(tmp_table,Cluster,Type,Sample_ID),num=sum(num))
-sum_table2<-dplyr::summarise(group_by(tmp_table,Type,Sample_ID),total_num=sum(num))
-sum_table<-merge(sum_table1,sum_table2,by=c("Type","Sample_ID"))
-sum_table$per<-sum_table$num/sum_table$total_num*100
+combined$Cluster<-"mPC"
+combined$Cluster[grepl("CD36",combined$SubCluster)]<-"imPC-CD36"
+combined$Cluster[grepl("MCAM",combined$SubCluster)]<-"imPC-MCAM"
+combined <- RunUMAP(combined, reduction = "harmony", dims = 1:15)
 
 
-Cluster<-levels(combined$MidCluster)
-
-g.colSet1<-c("#1F77B4" ,"#FF7F0E" , "#9467BD", "#AEC7E8","#E377C2", "#7F7F7F",
-             "#BCBD22" ,"#17BECF" ,"#FFBB78", "#98DF8A" ,"#FF9896", "#C5B0D5" ,"#C49C94",
-             "#F7B6D2" ,"#C7C7C7" ,"#DBDB8D", "#9EDAE5")
-names(g.colSet1)<-Cluster
-
-sum_table1<-sum_table[sum_table$Cluster %in% c("PC_C4_imPC-MCAM", "PC_C5-prolif"),]
-sum_table1<-dplyr::summarize(group_by(sum_table1,Type,Sample_ID),per=sum(per))
-
-sum_table1<-sum_table1[order(sum_table1$per,decreasing = T),]
-Sample_ID<-unique(c(sum_table1$Sample_ID,sum_table$Sample_ID))
-sum_table$Sample_ID<-factor(sum_table$Sample_ID,levels=Sample_ID)
-
-sum_table$Cluster<-factor(sum_table$Cluster,levels = c("PC_C1_mPC-ACTG2", "PC_C2_mPC-MYH11" ,"PC_C3_imPC-CD36",
-                                                       "PC_C4_imPC-MCAM", "PC_C5-prolif"))
+RNA_matrix<-combined@assays$RNA@counts
 
 
-stack_p2<-ggplot(data=sum_table, aes(x=Sample_ID, y=per, fill=Cluster)) + 
-  geom_bar(stat= 'identity', position = 'stack',width = 0.8)+ 
-  theme_classic()+
-  scale_fill_manual(values = g.colSet1)+
-  labs(x = 'Type', y ="Percentage",title=paste("Distribution of ECs (n = 363)")) +
-  theme(panel.grid = element_blank(), strip.text = element_text(size = 10)) +
-  #scale_x_continuous(breaks = seq(0,15,5),labels = c("0","5","10","15+"))+
-  scale_y_continuous(limits = c(0,101),breaks = seq(0,100,25),labels = c("0","25%","50%","75%","100%"))+
-  theme(axis.text.y = element_text(size = 10), axis.title = element_text(size = 10), legend.text = element_text(size = 10),
-        legend.position = "right",
-        axis.text.x = element_blank(),
-        plot.title = element_text(size = 10,vjust = 0.5,hjust=0.5),
-        #axis.text.x = element_blank(),
-        axis.title.x = element_blank(),
-        axis.line = element_blank(),
-        axis.ticks = element_blank(),
-        strip.background = element_blank(),
-        strip.text = element_text(size = 10,vjust = 0.5,hjust=0.5)
-  )+
-  facet_grid(~Type,scales = "free_x", space = 'free_x')
-print(stack_p2)
-
-
-sum_table$per<-round(sum_table$per,2)
-write.table(sum_table,"source_data_NC/Figure_S11A.txt",sep = "\t",row.names = F,col.names = T)
+mymatrix<-as.matrix(RNA_matrix)
 
 
 
-test<-readRDS("5.monocle2/5.CAF/monocle2.RDS")
-test$Type[which(test$Type!="PN")]<-"Tumor"
-test$Type[which(test$Type=="PN")]<-"Normal"
+m_t2g <- msigdbr(species = "Homo sapiens", category = "H") %>% 
+  dplyr::select(gs_name, entrez_gene,gene_symbol)
+m_t2g$gene_name<-m_t2g$gene_symbol
+m_t2g$gs_name<-gsub("HALLMARK_","",m_t2g$gs_name)
 
-g.colSet1 <-RColorBrewer::brewer.pal(6,"Set2")[c(1:3)]
-trajectory_p1<-plot_cell_trajectory(test,color_by = "Pseudotime",show_branch_points = F,cell_size = 0.3)+
-  theme(legend.position = "right")+
-  ggtitle("Cell trajectory by pseudotime")
-trajectory_p2<-plot_cell_trajectory(test,color_by = "Cluster",show_branch_points = F,cell_size = 0.3)+
-  scale_color_manual(values = g.colSet1)+
-  theme(legend.position = "none")+
-  ggtitle("Cell trajectory by cluster")
-trajectory_p3<-plot_cell_trajectory(test,color_by = "Cluster",show_branch_points = F,cell_size = 0.3)+
-  scale_color_manual(values = g.colSet1)+
-  facet_wrap(~Type,nrow=2)+theme(legend.position = "right")
-
-
-sum_table<-trajectory_p1$data
-sum_table<-data.frame(sum_table[,c("sample_name"  , "data_dim_1" ,  "data_dim_2"  ,          
-                                   "sample_state","Sample.type","Cluster")],Pseudotime=pData(test)$Pseudotime)
-
-sum_table$data_dim_1<-round(sum_table$data_dim_1,2)
-sum_table$data_dim_2<-round(sum_table$data_dim_2,2)
-sum_table$Pseudotime<-round(sum_table$Pseudotime,2)
-write.table(sum_table,"source_data_NC/Figure_S11B-C.txt",sep = "\t",row.names = F,col.names = T)
-
-
-
-total_p1<-trajectory_p1+trajectory_p2+trajectory_p3+plot_layout(ncol = 3,widths = c(2,2,1))
-
-
-
-pdf("14.Figure/Figure_S11A-C",width = 10,height = 3)
-print(total_p1)
-dev.off()
-
-
-
-
-
-Enrich_type<-"Reactome"
-Type="MCAM+ imPC"
-Select_cluster_list<-"PVL_C4_imPC-EGFL6"
-total_table<-data.frame()
-enriched_pathway<-c()
-for (cluster in Select_cluster_list){
-  path<-paste("4.characteristics/6.Enrichment/3.PVL/",cluster,"/",Enrich_type,"_enrich.xls",sep="")
-  enrich_table<-read.table(path,sep="\t",header = T,row.names = 1)
-  enrich_table$Cluster<-cluster
-  total_table<-rbind(total_table,enrich_table)
-  enriched_pathway<-c(enriched_pathway,enrich_table$Description)
+type <- unique(m_t2g$gs_name)
+type
+gs <- list()
+for (i in type){
+  tmp <- m_t2g$gene_symbol[which(m_t2g$gs_name == i)]
+  tmp <- list(tmp)
+  gs <- c(gs,tmp)
 }
-enriched_pathway<-c("Extracellular matrix organization","Signaling by Rho GTPases","Neutrophil degranulation","ECM proteoglycans","RHO GTPase Effectors","Signaling by Interleukins","Collagen formation","Post-translational protein phosphorylation","Interferon Signaling","Integrin cell surface interactions","Signaling by NOTCH","MAPK family signaling cascades","Signaling by MET")
+names(gs) <- type
+gs
+Hypoxia_Markers<-c( "ADM","AK4","BNIP3","CA9","CCNG2","ENO1","HK2","LDHA","PFKFB3","PGK1","SLC2A1","VEGFA","PDGFB","PGF","CXCL12","KITLG","ANGPT2")
 
-total_table1<-total_table[which(total_table$Cluster %in% Select_cluster_list&total_table$Description %in% enriched_pathway),]
+gs[["Hypoxia"]]<-Hypoxia_Markers
+library(GSVA)
+es.dif <- gsva(mymatrix, gs, method = "ssgsea", ssgsea.norm = T, mx.diff=TRUE, verbose=FALSE, parallel.sz=10)
 
+sim<-readRDS("5.monocle2/8.Slingshot/Slingshot.RDS")
+plot_data<-data.frame(reducedDims(sim)$PCA)
+plot_data$Pseudotime<-sim$slingPseudotime_1
+counts <- es.dif[,rownames(plot_data)]
 
-S2<- ggplot(total_table1, aes(x= reorder(Description, Count), y=Count,fill=p.adjust)) +
-  geom_bar(stat="identity",width=0.8)+
-  theme_classic()+
-  scale_fill_gradient(low = "red2",  high = "mediumblue", space = "Lab")+
-  xlab("Pathway")+
-  ggtitle(paste(Type," (",Enrich_type,")",sep=""))+
-  theme_bw()+
-  theme(plot.title = element_text(size = 10,hjust = 0.5),
-        legend.position = c(0.75,0.3),
-        axis.title.x = element_text(size = 10),
-        axis.title.y = element_text(size = 10),
-        axis.text.x = element_text(size = 10),
-        axis.text.y = element_text(size = 10),
-        legend.title = element_text(size = 10),
-        legend.text = element_text(size = 10))+
-  coord_flip()
-S2
+pseudotime <- sim$slingPseudotime_1      # 每个细胞的伪时间
+cell_Weight <- slingCurveWeights(sim)           # 细胞在各轨迹的权重（分支时用）
 
-total_table1$Cluster<-"MCAM+ imPC"
-write.table(total_table1,"source_data_NC/Figure_S11D.txt",sep = "\t",row.names = F,col.names = T)
-
-
-
-markers<-c("NOTCH3","HEYL","JAG1","PSMB9","NEURL1B","HEY2","PSMB8","CCND1","PSMB10","PSME2","PSME1","HIF1A","PSMA5","STAT1","RBX1")
-
-combined<-readRDS("3.Cluster/13.Annotation/2.Stromal_annotation.rds")
+#top_counts <- counts[top_genes, ]
+library(tradeSeq)
+sce <- fitGAM(
+  counts = counts,
+  pseudotime = pseudotime,
+  cellWeights = cell_Weight,
+  nknots = 6,  # 【关键】knots数量，基于evaluateK结果调整（如k=6）
+  verbose = FALSE
+)
 
 
-Idents(combined)<-combined$TopCluster
-combined<-subset(combined,idents="PVL")
+# 1. 分析基因与伪时间的整体相关性（associationTest）
+Relation <- associationTest(sce)  # p值越小，基因与伪时间关联越强
+# 2. 分析轨迹起止点的差异基因（startVsEndTest）
+sET <- startVsEndTest(sce)  # 比较“起始细胞”与“终止细胞”的基因表达
+# 关键指标：waldStat（值越大，起止点差异越显著）、logFClineage1（起始→终止的log2倍变化）
+# 3. 筛选top差异基因（以waldStat排序）
+order_sET <- order(sET$waldStat, decreasing = TRUE)
+topGeneStart <- names(sce)[order_sET[1]]  # 差异最显著的第一个基因（如示例中的"FTL"）
 
-combined$SubCluster<-factor(combined$SubCluster,levels=rev(c("PVL_C1_mPC-ACTG2", 
-                                                             "PVL_C2_mPC-MYH11" , "PVL_C3_imPC-CD36" , "PVL_C4_imPC-MCAM", "PVL_C5-prolif" )))
-Idents(combined)<-combined$SubCluster
-new.cluster.id<-rev(c(  "mPC-ACTG2" ,
-                        "mPC-MYH11" , "imPC-CD36" , 
-                        "imPC-MCAM" ,"prolif") )
+plotSmoothers(sce, counts, gene = topGeneStart)
+plotSmoothers(sce, counts, gene = "MYOGENESIS",)
+plotSmoothers(sce, counts, gene = "MYOGENESIS")
+plotSmoothers(sce, counts, gene = "NOTCH_SIGNALING")
 
 
-library(viridis)
-names(new.cluster.id)<-levels(combined)
-combined<-RenameIdents(combined,new.cluster.id)
-combined$SubCluster1<-Idents(combined)
 
-Idents(combined)<-combined$SubCluster1
+# 准备数据：整合细胞类型、伪时间、基因表达
+coldata <- data.frame(
+  celltype = sim@colData$Cluster,
+  row.names = colnames(sim)
+)
 
-DefaultAssay(combined)<-"RNA"
-combined<-ScaleData(combined)
 
-Vln_exp1<-VlnPlot(combined,features = markers,pt.size=0,group.by="SubCluster1",stack = T) +
-  ggtitle("Gene expression of Notch pathway")+
-  theme(axis.text = element_text(size = 10), 
-        axis.title = element_blank(), 
+# 匹配sce的细胞顺序
+filter_coldata <- data.frame(coldata[colnames(sce), ])
+# 添加伪时间信息（第一条轨迹）
+filter_coldata$Pseudotime <- sce$crv$pseudotime
+# 提取TOP5差异基因的表达量（log2转换，避免数值过大）
+top5 <- names(sce)[order_sET[1:5]]
+top5_exp <-sce@assays@data$counts %>% t()  # 转置为行=细胞，列=基因
+# 合并最终绘图数据
+plt_data <- cbind(filter_coldata, top5_exp)
+
+gene<-"Hypoxia" 
+trade_p1 <- ggscatter(
+  data = plt_data,
+  x = "Pseudotime",     # x轴=伪时间（发育顺序）
+  y = gene,           # y轴=基因表达量
+  color = "Pseudotime",    # 颜色=细胞类型head()
+  size = 0.6         # 点大小
+) +
+  geom_smooth(se = F, color = "red3",span = 0.5) +     # 加平滑线（无置信区间）
+  ylab("Score")+
+  ggtitle(gene)+
+  theme_bw() +                           # 简洁主题
+  scale_color_gradientn(colours =rev(color1))+  
+  theme(axis.text = element_text(size = 10), axis.title = element_text(size = 10),
+        axis.text.x = element_blank(), axis.title.x =element_text(size = 10),
+        axis.ticks = element_blank(), axis.line.x = element_blank(), axis.line.y = element_blank(), 
         legend.text = element_text(size = 10),
-        axis.text.x = element_text(size = 10,angle = 0,vjust = 0.5,hjust = 0.5),
-        legend.position = "none",
-        plot.title = element_text(size = 10,vjust = 0.5,hjust=0.5))
-Vln_exp1
-
-endo_data<-round(t(data.frame(combined@assays$RNA@scale.data[c("NOTCH3","HEYL","JAG1","PSMB9","NEURL1B","HEY2","PSMB8","CCND1","PSMB10","PSME2","PSME1","HIF1A","PSMA5","STAT1","RBX1"),])),2)
-endo_data<-data.frame(Cluster=combined$SubCluster,endo_data)
-endo_data$Cluster<-gsub("PVL","PC",endo_data$Cluster)
-write.table(endo_data,"source_data_NC/Figure_S11E.txt",sep = "\t",row.names = F,col.names = T)
+        legend.title = element_text(size = 10),
+        plot.title = element_text(size = 12,vjust = 0.5,hjust=0.5),
+        strip.background = element_blank(),
+        panel.border = element_rect(fill = NA,color="grey"))+   # 自定义配色
+  theme(legend.position = "none")             # 隐藏图例（避免重复）
+trade_p1
 
 
-
-library(CellChat)
-##Cell_chat
-cellchat<-readRDS("6.cell_chat/2.All/cellchat.RDS")
-#cellchat@idents<-factor(cellchat@idents,levels=c( "B" ,"Plasma"   ,    "CD4_conv"   ,   "CD4_Treg",  "CD8", "MAIT"  ,   "NK"   ,    "DC"  , "Macro"  ,    "Mono"  ,  
-#                                                  "Mast" ,    "Endo", "APC","pAD"  ,  "SMC"            )) 
-
-groupSize <- as.numeric(table(cellchat@idents))
-cellchat@idents<-factor(cellchat@idents,levels=c(       "B"  ,   "Plasma",  "CD4_conv" ,"CD4_Treg", "CD8"  ,"MAIT",   "NK" ,   
-                                                        "DC" , "Mono"   , "Macro" ,"Mast" ,"NF", "CAF"   ,   "PVL",     "Endo" ,   "Epi")
-)
-levels(cellchat@idents)
-vertex.receiver = seq(1,4)
+sub_sce<-readRDS("5.monocle2/7.PC_monocle3/sub_sce.RDS")
+counts <- sub_sce@assays$RNA@counts[,rownames(plot_data)]
 
 
-pathways.show <- "VEGF"
-select_list<-"VEGF|PTN|IL|CSF|ANGPT|DLL|JAG|NOTCH"
-pairLR.use = data.frame(interaction_name=cellchat@LR$LRsig$interaction_name[grepl(select_list,cellchat@LR$LRsig$interaction_name)])
-#pairLR.use$interaction_name<-unique(sort(pairLR.use$interaction_name))
-pairLR.use<-pairLR.use[!(grepl("CD99|THBS1|HLA",pairLR.use$interaction_name)),]
-
-pairLR.use<-data.frame(interaction_name=pairLR.use)
-netVisual_b1<-netVisual_bubble(cellchat, pairLR.use = pairLR.use, targets.use = 14,sources.use = c(       "B"  ,   "Plasma",  "CD4_conv" ,"CD4_Treg", "CD8"  ,"MAIT",   "NK" ,   
-                                                                                                          "DC" , "Mono"   , "Macro" ,"Mast" ,"NF", "CAF"   ,   "PVL",     "Endo" ,   "Epi"),remove.isolate = FALSE)+
-  theme(plot.title = element_text(size = 10,hjust = 0.5),
-        axis.title = element_blank(),
-        axis.text.x = element_text(size = 9),
-        axis.text.y = element_text(size = 9),
-        legend.title = element_text(size = 8),
-        legend.position = "none",
-        legend.text = element_text(size = 8))
-
-cell_chat_p2_data<-netVisual_b1$data
-cell_chat_p2_data$source<-as.character(cell_chat_p2_data$source)
-cell_chat_p2_data$target<-as.character(cell_chat_p2_data$target)
-cell_chat_p2_data$source.target<-as.character(cell_chat_p2_data$source.target)
-cell_chat_p2_data$source[which(cell_chat_p2_data$source=="PVL")]<-"PC"
-cell_chat_p2_data$target[which(cell_chat_p2_data$target=="PVL")]<-"PC"
-cell_chat_p2_data$source.target<-gsub("PVL","PC",cell_chat_p2_data$source.target)
-#cell_chat_p2_data$group.names<-gsub("PVL","PC",cell_chat_p2_data$group.names)
-
-write.table(cell_chat_p2_data,"source_data_NC/Figure_S11F.txt",sep = "\t",row.names = F,col.names = T)
-
-
-
-
-
-library(CellChat)
-library(patchwork)
-
-cellchat1<-readRDS("6.cell_chat/2.All/PN.RDS")
-cellchat2<-readRDS("6.cell_chat/2.All/PT.RDS")
-
-
-
-cellchat <- mergeCellChat(list(cellchat1, cellchat2), add.names = c("PN", "PT"))
-
-cellchat@idents<-factor(cellchat@idents,levels=c(       "B"  ,   "Plasma",  "CD4_conv" ,"CD4_Treg", "CD8"  ,"MAIT",   "NK" ,   
-                                                        "DC" , "Mono"   , "Macro" ,"Mast" ,"NF", "CAF"   ,   "PVL",     "Endo" ,   "Epi")
+# 准备数据：整合细胞类型、伪时间、基因表达
+coldata <- data.frame(
+  celltype = sim@colData$Cluster,
+  row.names = colnames(sim)
 )
 
-groupSize <- as.numeric(table(cellchat1@idents))
-levels(cellchat1@idents) 
-vertex.receiver = seq(1,4) 
+
+# 匹配sce的细胞顺序
+filter_coldata <- data.frame(coldata[colnames(sce), ])
+# 添加伪时间信息（第一条轨迹）
+filter_coldata$Pseudotime <- sce$crv$pseudotime
+# 提取TOP5差异基因的表达量（log2转换，避免数值过大）
+top5 <- names(sce)[order_sET[1:5]]
+top5_exp <- log2(counts[, colnames(sce)] + 0.1) %>% t()  # 转置为行=细胞，列=基因
+# 合并最终绘图数据
+plt_data <- cbind(filter_coldata, top5_exp)
+
+gene<-"HIF1A" 
+trade_p4 <- ggscatter(
+  data = plt_data,
+  x = "Pseudotime",     # x轴=伪时间（发育顺序）
+  y = gene,           # y轴=基因表达量
+  color = "Pseudotime",    # 颜色=细胞类型head()
+  size = 0.6         # 点大小
+) +
+  geom_smooth(se = F, color = "red3") +     # 加平滑线（无置信区间）
+  ylab("log2(Expression+0.1)")+
+  ggtitle(gene)+
+  theme_bw() +                           # 简洁主题
+  scale_color_gradientn(colours =rev(color1))+  
+  theme(axis.text = element_text(size = 10), axis.title = element_text(size = 10),
+        axis.text.x = element_blank(), axis.title.x = element_blank(),
+        axis.ticks = element_blank(), axis.line.x = element_blank(), axis.line.y = element_blank(), 
+        legend.text = element_text(size = 10),
+        legend.title = element_text(size = 10),
+        plot.title = element_text(size = 10,vjust = 0.5,hjust=0.5),
+        strip.background = element_blank(),
+        panel.border = element_rect(fill = NA,color="grey"))+   # 自定义配色
+  theme(legend.position = "none")             # 隐藏图例（避免重复）
+trade_p4
+
+gene<-"PGF" 
+trade_p5 <- ggscatter(
+  data = plt_data,
+  x = "Pseudotime",     # x轴=伪时间（发育顺序）
+  y = gene,           # y轴=基因表达量
+  color = "Pseudotime",    # 颜色=细胞类型head()
+  size = 0.6         # 点大小
+) +
+  geom_smooth(se = F, color = "red3") +     # 加平滑线（无置信区间）
+  ylab("log2(Expression+0.1)")+
+  ggtitle(gene)+
+  theme_bw() +                           # 简洁主题
+  scale_color_gradientn(colours =rev(color1))+  
+  theme(axis.text = element_text(size = 10), axis.title = element_blank(),
+        axis.text.x = element_blank(), axis.title.x = element_blank(),
+        axis.ticks = element_blank(), axis.line.x = element_blank(), axis.line.y = element_blank(), 
+        legend.text = element_text(size = 10),
+        legend.title = element_text(size = 10),
+        plot.title = element_text(size = 10,vjust = 0.5,hjust=0.5),
+        strip.background = element_blank(),
+        panel.border = element_rect(fill = NA,color="grey"))+   # 自定义配色
+  theme(legend.position = "none")             # 隐藏图例（避免重复）
+trade_p5
+
+
+gene<-"ANGPT2" 
+trade_p6 <- ggscatter(
+  data = plt_data,
+  x = "Pseudotime",     # x轴=伪时间（发育顺序）
+  y = gene,           # y轴=基因表达量
+  color = "Pseudotime",    # 颜色=细胞类型head()
+  size = 0.6         # 点大小
+) +
+  geom_smooth(se = F, color = "red3") +     # 加平滑线（无置信区间）
+  ylab("log2(Expression+0.1)")+
+  ggtitle(gene)+
+  theme_bw() +                           # 简洁主题
+  scale_color_gradientn(colours =rev(color1))+  
+  theme(axis.text = element_text(size = 10), axis.title = element_blank(),
+        axis.text.x = element_blank(), axis.title.x = element_blank(),
+        axis.ticks = element_blank(), axis.line.x = element_blank(), axis.line.y = element_blank(), 
+        legend.text = element_text(size = 10),
+        legend.title = element_text(size = 10),
+        plot.title = element_text(size = 10,vjust = 0.5,hjust=0.5),
+        strip.background = element_blank(),
+        panel.border = element_rect(fill = NA,color="grey"))+   # 自定义配色
+  theme(legend.position = "none")             # 隐藏图例（避免重复）
+trade_p6
+
+
+gene<-"HIGD1B" 
+trade_p7 <- ggscatter(
+  data = plt_data,
+  x = "Pseudotime",     # x轴=伪时间（发育顺序）
+  y = gene,           # y轴=基因表达量
+  color = "Pseudotime",    # 颜色=细胞类型head()
+  size = 0.6         # 点大小
+) +
+  geom_smooth(se = F, color = "red3") +     # 加平滑线（无置信区间）
+  ylab("log2(Expression+0.1)")+
+  ggtitle(gene)+
+  theme_bw() +                           # 简洁主题
+  scale_color_gradientn(colours =rev(color1))+  
+  theme(axis.text = element_text(size = 10), axis.title =element_blank(),
+        axis.text.x = element_blank(), axis.title.x = element_blank(),
+        axis.ticks = element_blank(), axis.line.x = element_blank(), axis.line.y = element_blank(), 
+        legend.text = element_text(size = 10),
+        legend.title = element_text(size = 10),
+        plot.title = element_text(size = 10,vjust = 0.5,hjust=0.5),
+        strip.background = element_blank(),
+        panel.border = element_rect(fill = NA,color="grey"))+   # 自定义配色
+  theme(legend.position = "none")             # 隐藏图例（避免重复）
+trade_p7
 
 
 
+##Cluster 
+combined <- readRDS("5.monocle2/7.PC_monocle3/sub_sce.RDS")
 
-pathways.show <- "VEGF"
-select_list<-"VEGF|PTN|IL|CSF|ANGPT|DLL|JAG|NOTCH"
-pairLR.use = data.frame(interaction_name=cellchat1@LR$LRsig$interaction_name[grepl(select_list,cellchat1@LR$LRsig$interaction_name)])
-pairLR.use<-pairLR.use[!(grepl("CD99|THBS1|HLA",pairLR.use$interaction_name)),]
-
-pairLR.use<-data.frame(interaction_name=pairLR.use)
-
-cell_chat_p2<-netVisual_bubble(cellchat, pairLR.use = pairLR.use,  comparison = c(1, 2) , targets.use = 14, sources.use = c(       "B"  ,   "Plasma",  "CD4_conv" ,"CD4_Treg", "CD8"  ,"MAIT",   "NK" ,   
-                                                                                                                                   "DC" , "Mono"   , "Macro" ,"Mast" ,"NF", "CAF"   ,   "PVL",     "Endo" ,   "Epi"), remove.isolate = FALSE)+
-  theme(plot.title = element_text(size = 10,hjust = 0.5),
-        axis.title = element_blank(),
-        axis.text.x = element_text(size = 9),
-        axis.text.y = element_text(size = 9),
-        legend.title = element_text(size = 8),
-        legend.position = "right",
-        legend.text = element_text(size = 8))
-
-cell_chat_p2_data<-cell_chat_p2$data
-cell_chat_p2_data$source<-as.character(cell_chat_p2_data$source)
-cell_chat_p2_data$target<-as.character(cell_chat_p2_data$target)
-cell_chat_p2_data$source.target<-as.character(cell_chat_p2_data$source.target)
-cell_chat_p2_data$source[which(cell_chat_p2_data$source=="PVL")]<-"PC"
-cell_chat_p2_data$target[which(cell_chat_p2_data$target=="PVL")]<-"PC"
-cell_chat_p2_data$source.target<-gsub("PVL","PC",cell_chat_p2_data$source.target)
-cell_chat_p2_data$group.names<-gsub("PVL","PC",cell_chat_p2_data$group.names)
-
-write.table(cell_chat_p2_data,"source_data_NC/Figure_S11G.txt",sep = "\t",row.names = F,col.names = T)
-
-
-
-
-##Cluster
-combined1<-readRDS("3.Cluster/13.Annotation/2.Stromal_annotation.rds")
-Idents(combined1)<-combined1$TopCluster
-combined<-subset(combined1,idents="PVL")
-
-combined$SubCluster<-factor(combined$SubCluster,levels=rev(c("PVL_C1_mPC-ACTG2", 
-                                                             "PVL_C2_mPC-MYH11" , "PVL_C3_imPC-CD36" , "PVL_C4_imPC-MCAM", "PVL_C5-prolif" )))
-Idents(combined)<-combined$SubCluster
-new.cluster.id<-rev(c(  "mPC-ACTG2" ,
-                        "mPC-MYH11" , "imPC-CD36" , 
-                        "imPC-MCAM" ,"prolif") )
-
-
-library(viridis)
-names(new.cluster.id)<-levels(combined)
-combined<-RenameIdents(combined,new.cluster.id)
-combined$SubCluster1<-Idents(combined)
-
-Idents(combined)<-combined$SubCluster1
-
-
+combined$Cluster<-"mPC"
+combined$Cluster[grepl("imPC",combined$SubCluster)]<-"imPC"
+combined$Cluster[grepl("prolif",combined$SubCluster)]<-"prolif"
+combined$Cluster<-factor(combined$Cluster,levels =  c("mPC","imPC","prolif"))
 
 Gene_name1="Hypoxia"
-Gene_name2="PGF+ Tip cell markers"
 
 DefaultAssay(combined)<-"RNA"
 
@@ -334,13 +275,19 @@ RNA_matrix<-combined@assays$RNA@counts
 
 
 mymatrix<-as.matrix(RNA_matrix)
-Tip_Markers<-c( "ADM","AK4","BNIP3","CA9","CCNG2","ENO1","HK2","LDHA","PFKFB3","PGK1","SLC2A1","VEGFA","PDGFB","PGF","CXCL12","KITLG","ANGPT2")
+Hypoxia_Markers<-c( "ADM","AK4","BNIP3","CA9","CCNG2","ENO1","HK2","LDHA","PFKFB3","PGK1","SLC2A1","VEGFA","PDGFB","PGF","CXCL12","KITLG","ANGPT2")
 
-Endo_Markers<-c("ESM1","PGF","APLN","PXDN","TP53I11","IL32","LXN","LOX","ACTB","ACTG1",
-                "CXCR4","ANGPT2","IGF2","PECAM1","VWF")
-mysymbol1<-data.frame(Gene_set="Tip_ECs",Gene_symbol=Tip_Markers)
-mysymbol2<-data.frame(Gene_set="Endo",Gene_symbol=Endo_Markers)
+
+m_t2g <- msigdbr(species = "Homo sapiens", category = "H") %>% 
+  dplyr::select(gs_name, entrez_gene,gene_symbol)
+
+Angio_sing<-m_t2g$gene_symbol[which(m_t2g$gs_name=="HALLMARK_ANGIOGENESIS")]
+
+
+mysymbol1<-data.frame(Gene_set="Hypoxia",Gene_symbol=Hypoxia_Markers)
+mysymbol2<-data.frame(Gene_set="Angiogenesis",Gene_symbol=Angio_sing)
 mysymbol<-rbind(mysymbol1,mysymbol2)
+
 
 colnames(mysymbol)<-c("Gene_set","Gene_symbol")
 head(mysymbol)
@@ -369,99 +316,437 @@ mt<-es.dif[1,]
 
 
 
-select_fpkm_matrix<-data.frame(Sample_ID=combined$Sample_ID,
-                               Type=combined$SubCluster1,
-                               gene=mt)
+
+mt<-t(es.dif)
+combined<-AddMetaData(combined,metadata = mt)
 
 
-select_fpkm_matrix$Type<-factor(select_fpkm_matrix$Type,levels=c("mPC-ACTG2" ,
-                                                                 "mPC-MYH11" , "imPC-CD36" , 
-                                                                 "imPC-MCAM" ,"prolif"))
-
-
-
-box_p1<-ggplot(data=select_fpkm_matrix,aes(x=Type,y=gene,group=Type,color=Type))+
-  geom_violin(aes(fill=Type),trim=FALSE,color="white") + 
-  geom_boxplot(aes(fill=Type),width=0.2,position=position_dodge(0.9),color="black")+
-  #scale_fill_manual(values = c("#56B4E9", "#E69F00"))+ 
-  ggtitle("Hypoxia score")+
-  ylab("Hypoxia score")+
-  stat_compare_means(ref.group = 1,label = "p.format",size=3)+
-  theme_classic()+
-  scale_y_continuous(expand = c(0,0))+
-  ylim(c(0.5,1.8))+
-  theme(plot.title = element_text(size = 10,hjust = 0.5),
-        axis.title.x = element_blank(),
-        axis.title.y = element_text(size = 10),
-        axis.text.x = element_text(size = 10,angle = 45,vjust = 1,hjust = 1),
-        axis.text.y = element_text(size = 10),
-        legend.title = element_text(size = 10),
-        legend.position = "none",
-        legend.text = element_text(size = 10))
-box_p1
-
-select_fpkm_matrix$gene<-round(select_fpkm_matrix$gene,2)
-write.table(select_fpkm_matrix,"source_data_NC/Figure_S11H.txt",sep = "\t",row.names = F,col.names = T)
-
-
-
-
-combined<-readRDS("3.Cluster/13.Annotation/2.Stromal_annotation.rds")
-
-
-Idents(combined)<-combined$TopCluster
-combined<-subset(combined,idents="PVL")
-
-combined$SubCluster<-factor(combined$SubCluster,levels=rev(c("PVL_C1_mPC-ACTG2", 
-                                                             "PVL_C2_mPC-MYH11" , "PVL_C3_imPC-CD36" , "PVL_C4_imPC-MCAM", "PVL_C5-prolif" )))
-Idents(combined)<-combined$SubCluster
-new.cluster.id<-rev(c(  "mPC-ACTG2" ,
-                        "mPC-MYH11" , "imPC-CD36" , 
-                        "imPC-MCAM" ,"prolif") )
-
-
-library(viridis)
-names(new.cluster.id)<-levels(combined)
-combined<-RenameIdents(combined,new.cluster.id)
-combined$SubCluster1<-Idents(combined)
-
-Idents(combined)<-combined$SubCluster1
-
-DefaultAssay(combined)<-"RNA"
-combined<-ScaleData(combined)
-
-Idents(combined)<-combined$Type
-combined<-subset(combined,idents=c("PT","PN"))
-
-Vln_exp2<-VlnPlot(combined,features = Tip_Markers,pt.size=0,group.by="SubCluster1",stack = T,split.by = "Type",
-                  cols = c("#B31B21", "#1465AC")) +
-  ggtitle("Gene expression of hypoxia pathway (tumor vs. normal)")+
-  stat_compare_means(label = "p.format",label.y.npc = 0.9)+
+Vln_exp1<-VlnPlot(combined,features = c("Hypoxia","Angiogenesis"),cols = RColorBrewer::brewer.pal(8,"Set2"),
+                  pt.size=0,group.by="Cluster",ncol = 2) &
+  ylim(c(0.5,1.8)) &
+  stat_compare_means(method = "wilcox.test",comparisons  = list(c("mPC","imPC"))) &
   theme(axis.text = element_text(size = 10), 
         axis.title = element_blank(), 
         legend.text = element_text(size = 10),
-        axis.text.x = element_text(size = 10,angle = 0,vjust = 0.5,hjust = 0.5),
-        legend.position = "right",
-        plot.title = element_text(size = 10,vjust = 0.5,hjust=0.5))
-Vln_exp2
-
-
-endo_data<-round(t(data.frame(combined@assays$RNA@scale.data[Tip_Markers,])),2)
-endo_data<-data.frame(Cluster=combined$SubCluster,Type=combined$Type,endo_data)
-endo_data$Cluster<-gsub("PVL","PC",endo_data$Cluster)
-write.table(endo_data,"source_data_NC/Figure_S11I.txt",sep = "\t",row.names = F,col.names = T)
+        #axis.text.x = element_text(size = 10,angle = 45,vjust = 0.5,hjust = 0.5),
+        legend.position = "none",
+        plot.title = element_text(size = 12,vjust = 0.5,hjust=0.5))
+Vln_exp1
 
 
 
 
 
-total_p1<-ggarrange(S2,Vln_exp1,ncol=2,widths = c(1,1.4))
-total_p2<-ggarrange(netVisual_b1,cell_chat_p2,ncol=2,widths = c(1,2))
-total_p3<-ggarrange(box_p1,Vln_exp2,ncol=2,widths = c(1,3))
 
-total_p<-ggarrange(total_p1,total_p2,total_p3,ncol=1,nrow = 4,
-                   heights = c(3,3,3,3))
-pdf("14.Figure/7.Figure_7.pdf",width = 12,height = 12)
+
+
+RNA_matrix<-data.table::fread("~/data/single_cell/18.pan_Endo/PGF/8.RNA_Seq/Hypoxia/GSE109233_non_normalized.txt/counts.txt",header = T,stringsAsFactors = F)
+RNA_matrix<-data.frame(RNA_matrix,row.names = 1)
+phenotype_matrix<-data.frame(sample=colnames(RNA_matrix),
+                             Type=c( rep("Hypoxia" ,8),
+                                     rep("Normoxia" ,8),
+                                     rep("Hypoxia" ,6),
+                                     rep("Normoxia" ,6)),
+                             Time=c( rep("2h" ,8),
+                                     rep("2h" ,8),
+                                     rep("6h" ,6),
+                                     rep("6h" ,6)),
+                             Glucose=c(rep("Glucose (+)",4),rep("Glucose (-)",4),
+                                    rep("Glucose (+)",4),rep("Glucose (-)",4),
+                                    rep("Glucose (+)",3),rep("Glucose (-)",3),
+                                    rep("Glucose (+)",3),rep("Glucose (-)",3)))
+
+mymatrix<-as.matrix(RNA_matrix)
+Hypoxia_Markers<-c( "ADM","AK4","BNIP3","CA9","CCNG2","ENO1","HK2","LDHA","PFKFB3","PGK1","SLC2A1","VEGFA","PDGFB","PGF","CXCL12","KITLG","ANGPT2")
+
+
+m_t2g <- msigdbr(species = "Homo sapiens", category = "H") %>% 
+  dplyr::select(gs_name, entrez_gene,gene_symbol)
+
+Angio_sing<-m_t2g$gene_symbol[which(m_t2g$gs_name=="HALLMARK_ANGIOGENESIS")]
+
+Angio_sing<-c("TYMP","VCAN","CD44","FYN","VEGFA","ANGPT2","PGF","TNFAIP6","E2F3","TGFB1",
+              "PDGFA","PDGFD","FGF7","SERPINA5",
+              "COL3A1"  , "COL5A2"  , "CXCL6"  ,  "FGFR1"  ,  "FSTL1" ,   "ITGAV"  ,  "JAG1",
+              "TIMP1"  ,  "TNFRSF21", "VAV2"   ,  "VCAN"   ,  "VEGFA" ,   "VTN", 
+              "MMP9","ITGAV","SPP1","PTK2","CCND2","EZH2")
+mysymbol1<-data.frame(Gene_set="Hypoxia",Gene_symbol=Hypoxia_Markers)
+mysymbol2<-data.frame(Gene_set="Angiogenesis",Gene_symbol=c(Angio_sing))
+mysymbol<-rbind(mysymbol1,mysymbol2)
+
+
+colnames(mysymbol)<-c("Gene_set","Gene_symbol")
+head(mysymbol)
+table(mysymbol$Gene_set)
+
+
+
+type <- unique(mysymbol$Gene_set)
+type
+gs <- list()
+for (i in type){
+  tmp <- mysymbol$Gene_symbol[which(mysymbol$Gene_set == i)]
+  tmp <- list(tmp)
+  gs <- c(gs,tmp)
+}
+names(gs) <- type
+gs
+
+
+library(GSVA)
+es.dif <- gsva(mymatrix, gs, method = "ssgsea", ssgsea.norm = T, mx.diff=TRUE, verbose=FALSE, parallel.sz=5)
+
+
+
+
+select_table1<-data.frame(sample=colnames(mymatrix),
+                          Score=es.dif[1,],
+                          Signal="Hypoxia score")
+select_table2<-data.frame(sample=colnames(mymatrix),
+                          Score=es.dif[2,],
+                          Signal="Angiogenesis score")
+select_table<-rbind(select_table1,select_table2)
+
+select_fpkm_matrix<-merge(select_table,phenotype_matrix,by="sample")
+
+#select_fpkm_matrix<-select_fpkm_matrix[which(select_fpkm_matrix$Type %in% c("Ctrl","Rbpj-ko")),]
+select_fpkm_matrix$Glucose<-factor(select_fpkm_matrix$Glucose,levels = c("Glucose (+)","Glucose (-)"))
+select_fpkm_matrix$Time<-factor(select_fpkm_matrix$Time,levels = c("2h" ,"6h"))
+select_fpkm_matrix$Signal<-factor(select_fpkm_matrix$Signal,levels = c("Hypoxia score","Angiogenesis score"))
+select_fpkm_matrix$Type<-factor(select_fpkm_matrix$Type,levels = c("Normoxia","Hypoxia"))
+
+select_fpkm_matrix1<-select_fpkm_matrix[which(select_fpkm_matrix$Signal %in% "Hypoxia score"),]
+box_p1<-ggplot(data=select_fpkm_matrix1,aes(x=Time,y=Score,fill=Type))+
+  #geom_jitter()+
+  geom_boxplot(alpha=0.5)+
+  scale_fill_manual(values = c("#336699", "#993399"))+
+  ggtitle("Hypoxia score in pericytes (GSE109233)")+
+  stat_compare_means(method = "t.test",label = "p.signif",label.y.npc = 0.95)+
+  ylab("Hypoxia score")+
+  theme_classic()+
+  theme(plot.title = element_text(size = 12,hjust = 0.5),
+        axis.title.x = element_blank(),
+        axis.title.y = element_text(size = 10),
+        strip.background = element_blank(),
+        #axis.text.x = element_blank(),
+        axis.text.y = element_text(size = 10),
+        legend.title = element_text(size = 10),
+        legend.position = "top",
+        legend.text = element_text(size = 10))
+box_p1
+
+
+
+
+
+gene_name<- unique(c("PGF","HIF1A",
+                     "BNIP3","ADM","LDHA"))
+
+data1<-data.frame(mymatrix[gene_name,])
+data1$Gene_name<-rownames(data1)
+data1<-reshape2::melt(data1,varnams=c("Gene_name"),value.name="gene")
+colnames(data1)<-c("gene","sample","Score")
+data1$Score<-log2(data1$Score+0.01)
+select_fpkm_matrix<-merge(data1,phenotype_matrix,by="sample")
+
+
+#select_fpkm_matrix<-select_fpkm_matrix[which(select_fpkm_matrix$Type %in% c("Ctrl","Rbpj-ko")),]
+select_fpkm_matrix$Glucose<-factor(select_fpkm_matrix$Glucose,levels = c("Glucose (+)","Glucose (-)"))
+select_fpkm_matrix$Time<-factor(select_fpkm_matrix$Time,levels = c("2h" ,"6h"))
+select_fpkm_matrix$gene<-factor(select_fpkm_matrix$gene,levels = c("PGF","HIF1A",
+                                                                   "BNIP3","ADM","LDHA"))
+select_fpkm_matrix$Type<-factor(select_fpkm_matrix$Type,levels = c("Normoxia","Hypoxia"))
+
+select_fpkm_matrix1<-select_fpkm_matrix[which(select_fpkm_matrix$Glucose %in% "Glucose (+)"),]
+box_p3<-ggplot(data=select_fpkm_matrix1,aes(x=Time,y=Score,fill=Type))+
+  #geom_jitter()+
+  geom_boxplot(alpha=0.5)+
+  scale_fill_manual(values = c("#336699", "#993399"))+
+  ggtitle("Expression in pericytes (Hypoxia vs Normoxia, GSE109233)")+
+  stat_compare_means(method = "t.test",label = "p.signif",label.y.npc = 0.95)+
+  theme_classic()+
+  ylab("log2(Expression+0.01)")+
+  theme(plot.title = element_text(size = 12,hjust = 0.5),
+        axis.title.x = element_blank(),
+        axis.title.y = element_text(size = 10),
+        strip.background = element_blank(),
+        #axis.text.x = element_blank(),
+        axis.text.y = element_text(size = 10),
+        legend.title = element_text(size = 10),
+        legend.position = "top",
+        legend.text = element_text(size = 10))+
+  facet_wrap(~gene,scale="free_y",ncol=6)
+box_p3
+
+
+
+
+
+RNA_matrix<-data.table::fread("~/data/lzx_project/19.PC_hypo_RNA/4.matrix/FPKM_symbol.txt",header = T,stringsAsFactors = F)
+RNA_matrix<-data.frame(RNA_matrix,row.names = 1)
+phenotype_matrix<-data.frame(sample=colnames(RNA_matrix),
+                             Type=c( rep("Hypoxia" ,4),
+                                     rep("Normoxia" ,4)))
+
+mymatrix<-as.matrix(RNA_matrix)
+Hypoxia_Markers<-c( "ADM","AK4","BNIP3","CA9","CCNG2","ENO1","HK2","LDHA","PFKFB3","PGK1",
+                    "SLC2A1","VEGFA","PDGFB","PGF","CXCL12","KITLG","ANGPT2")
+
+
+m_t2g <- msigdbr(species = "Homo sapiens", category = "H") %>% 
+  dplyr::select(gs_name, entrez_gene,gene_symbol)
+
+Angio_sing<-m_t2g$gene_symbol[which(m_t2g$gs_name=="HALLMARK_ANGIOGENESIS")]
+
+Angio_sing<-c("TYMP","VCAN","CD44","FYN","VEGFA","ANGPT2","PGF","TNFAIP6","E2F3","TGFB1",
+              "PDGFA","PDGFD","FGF7","SERPINA5",
+              "COL3A1"  , "COL5A2"  , "CXCL6"  ,  "FGFR1"  ,  "FSTL1" ,   "ITGAV"  ,  "JAG1",
+              "TIMP1"  ,  "TNFRSF21", "VAV2"   ,  "VCAN"   ,  "VEGFA" ,   "VTN", 
+              "MMP9","ITGAV","SPP1","PTK2","CCND2","EZH2")
+mysymbol1<-data.frame(Gene_set="Hypoxia",Gene_symbol=Hypoxia_Markers)
+mysymbol2<-data.frame(Gene_set="Angiogenesis",Gene_symbol=c(Angio_sing))
+mysymbol<-rbind(mysymbol1,mysymbol2)
+
+
+colnames(mysymbol)<-c("Gene_set","Gene_symbol")
+head(mysymbol)
+table(mysymbol$Gene_set)
+
+
+
+type <- unique(mysymbol$Gene_set)
+type
+gs <- list()
+for (i in type){
+  tmp <- mysymbol$Gene_symbol[which(mysymbol$Gene_set == i)]
+  tmp <- list(tmp)
+  gs <- c(gs,tmp)
+}
+names(gs) <- type
+gs
+
+
+library(GSVA)
+es.dif <- gsva(mymatrix, gs, method = "ssgsea", ssgsea.norm = T, mx.diff=TRUE, verbose=FALSE, parallel.sz=5)
+
+
+
+
+select_table1<-data.frame(sample=colnames(mymatrix),
+                          Score=es.dif[1,],
+                          Signal="Hypoxia score")
+select_table2<-data.frame(sample=colnames(mymatrix),
+                          Score=es.dif[2,],
+                          Signal="Angiogenesis score")
+select_table<-rbind(select_table1,select_table2)
+
+select_fpkm_matrix<-merge(select_table,phenotype_matrix,by="sample")
+
+
+select_fpkm_matrix$Signal<-factor(select_fpkm_matrix$Signal,levels = c("Hypoxia score","Angiogenesis score"))
+select_fpkm_matrix$Type<-factor(select_fpkm_matrix$Type,levels = c("Normoxia","Hypoxia"))
+
+select_fpkm_matrix<-select_fpkm_matrix[which(select_fpkm_matrix$Signal %in% "Hypoxia score"),]
+box_p11<-ggplot(data=select_fpkm_matrix,aes(x=Type,y=Score,fill=Type))+
+  #geom_jitter()+
+  geom_boxplot(alpha=0.5)+
+  scale_fill_manual(values = c("#336699", "#993399"))+
+  ggtitle("Human pericytes (Hypoxia vs. Normoxia)")+
+  stat_compare_means(method = "t.test",label = "p.signif",label.y.npc = 0.95)+
+  theme_classic()+
+  theme(plot.title = element_text(size = 12,hjust = 0.5),
+        axis.title.x = element_blank(),
+        axis.title.y = element_text(size = 10),
+        strip.background = element_blank(),
+        #axis.text.x = element_blank(),
+        axis.text.y = element_text(size = 10),
+        legend.title = element_text(size = 10),
+        legend.position = "top",
+        legend.text = element_text(size = 10))
+box_p11
+
+
+
+
+
+select_table1<-data.frame(sample=colnames(mymatrix),
+                          Score=log2(mymatrix["ANGPT2",]+0.01),
+                          gene="ANGPT2")
+select_table2<-data.frame(sample=colnames(mymatrix),
+                          Score=log2(mymatrix["PGF",]+0.01),
+                          gene="PGF")
+select_table3<-data.frame(sample=colnames(mymatrix),
+                          Score=log2(mymatrix["HIF1A",]+0.01),
+                          gene="HIF1A")
+
+gene_name<- unique(c("PGF","HIF1A",
+                     "BNIP3","ADM","LDHA"))
+
+data1<-data.frame(mymatrix[gene_name,])
+data1$Gene_name<-rownames(data1)
+data1<-reshape2::melt(data1,varnams=c("Gene_name"),value.name="gene")
+colnames(data1)<-c("gene","sample","Score")
+data1$Score<-log2(data1$Score+0.01)
+select_fpkm_matrix<-merge(data1,phenotype_matrix,by="sample")
+
+
+select_fpkm_matrix$gene<-factor(select_fpkm_matrix$gene,levels = c("PGF","HIF1A",
+                                                                   "BNIP3","ADM","LDHA"))
+select_fpkm_matrix$Type<-factor(select_fpkm_matrix$Type,levels = c("Normoxia","Hypoxia"))
+
+box_p31<-ggplot(data=select_fpkm_matrix,aes(x=Type,y=Score,fill=Type))+
+  #geom_jitter()+
+  geom_boxplot(alpha=0.5)+
+  scale_fill_manual(values = c("#336699", "#993399"))+
+  ggtitle("Expression in pericytes (Hypoxia vs. Normoxia)")+
+  stat_compare_means(method = "t.test",label = "p.signif",label.y.npc = 0.95)+
+  theme_classic()+
+  ylab("log2(Expression+0.01)")+
+  theme(plot.title = element_text(size = 12,hjust = 0.5),
+        axis.title.x = element_blank(),
+        axis.title.y = element_text(size = 10),
+        strip.background = element_blank(),
+        #axis.text.x = element_blank(),
+        axis.text.y = element_text(size = 10),
+        legend.title = element_text(size = 10),
+        legend.position = "top",
+        legend.text = element_text(size = 10))+
+  facet_wrap(~gene,scale="free_y",ncol=6)
+box_p31
+
+
+
+
+RNA_matrix<-data.table::fread("~/data/lzx_project/25.hypo_PC/4.matrix/FPKM_symbol.txt",header = T,stringsAsFactors = F)
+RNA_matrix<-data.frame(RNA_matrix,row.names = 1)
+phenotype_matrix<-data.frame(sample=colnames(RNA_matrix),
+                             Type=c( rep("Hypoxia" ,3),
+                                     rep("Normoxia" ,3),rep("Re-Oxygen" ,3)))
+
+mymatrix<-as.matrix(RNA_matrix)
+Hypoxia_Markers<-c( "ADM","AK4","BNIP3","CA9","CCNG2","ENO1","HK2","LDHA","PFKFB3","PGK1",
+                    "SLC2A1","VEGFA","PDGFB","PGF","CXCL12","KITLG","ANGPT2")
+
+
+m_t2g <- msigdbr(species = "Homo sapiens", category = "H") %>% 
+  dplyr::select(gs_name, entrez_gene,gene_symbol)
+
+Angio_sing<-m_t2g$gene_symbol[which(m_t2g$gs_name=="HALLMARK_ANGIOGENESIS")]
+
+Angio_sing<-c("TYMP","VCAN","CD44","FYN","VEGFA","ANGPT2","PGF","TNFAIP6","E2F3","TGFB1",
+              "PDGFA","PDGFD","FGF7","SERPINA5",
+              "COL3A1"  , "COL5A2"  , "CXCL6"  ,  "FGFR1"  ,  "FSTL1" ,   "ITGAV"  ,  "JAG1",
+              "TIMP1"  ,  "TNFRSF21", "VAV2"   ,  "VCAN"   ,  "VEGFA" ,   "VTN", 
+              "MMP9","ITGAV","SPP1","PTK2","CCND2","EZH2")
+mysymbol1<-data.frame(Gene_set="Hypoxia",Gene_symbol=Hypoxia_Markers)
+mysymbol2<-data.frame(Gene_set="Angiogenesis",Gene_symbol=c(Angio_sing))
+mysymbol<-rbind(mysymbol1,mysymbol2)
+
+
+colnames(mysymbol)<-c("Gene_set","Gene_symbol")
+head(mysymbol)
+table(mysymbol$Gene_set)
+
+
+
+type <- unique(mysymbol$Gene_set)
+type
+gs <- list()
+for (i in type){
+  tmp <- mysymbol$Gene_symbol[which(mysymbol$Gene_set == i)]
+  tmp <- list(tmp)
+  gs <- c(gs,tmp)
+}
+names(gs) <- type
+gs
+
+
+library(GSVA)
+es.dif <- gsva(mymatrix, gs, method = "ssgsea", ssgsea.norm = T, mx.diff=TRUE, verbose=FALSE, parallel.sz=5)
+
+
+
+
+select_table1<-data.frame(sample=colnames(mymatrix),
+                          Score=es.dif[1,],
+                          Signal="Hypoxia score")
+select_table2<-data.frame(sample=colnames(mymatrix),
+                          Score=es.dif[2,],
+                          Signal="Angiogenesis score")
+select_table<-rbind(select_table1,select_table2)
+
+select_fpkm_matrix<-merge(select_table,phenotype_matrix,by="sample")
+
+
+select_fpkm_matrix$Signal<-factor(select_fpkm_matrix$Signal,levels = c("Hypoxia score","Angiogenesis score"))
+select_fpkm_matrix$Type<-factor(select_fpkm_matrix$Type,levels = c("Normoxia","Hypoxia","Re-Oxygen"))
+
+select_fpkm_matrix<-select_fpkm_matrix[which(select_fpkm_matrix$Signal %in% "Hypoxia score"),]
+box_p41<-ggplot(data=select_fpkm_matrix,aes(x=Type,y=Score,fill=Type))+
+  #geom_jitter()+
+  geom_boxplot(alpha=0.5)+
+  scale_fill_manual(values = c("#336699", "#993399","#003399"))+
+  ggtitle("Human pericytes (Hypoxia vs. Normoxia)")+
+  stat_compare_means(method = "t.test",label = "p.signif",label.y.npc = 0.95,
+                    comparisons = list(c("Normoxia","Hypoxia"),c("Hypoxia","Re-Oxygen")))+
+  theme_classic()+
+  theme(plot.title = element_text(size = 12,hjust = 0.5),
+        axis.title.x = element_blank(),
+        axis.title.y = element_text(size = 10),
+        strip.background = element_blank(),
+        axis.text.x = element_text(size = 10,angle = 45,vjust = 1,hjust = 1),
+        axis.text.y = element_text(size = 10),
+        legend.title = element_text(size = 10),
+        legend.position = "top",
+        legend.text = element_text(size = 10))
+box_p41
+
+
+
+
+
+gene_name<- unique(c("PGF","HIF1A",
+                     "BNIP3","ADM","LDHA"))
+
+data1<-data.frame(mymatrix[gene_name,])
+data1$Gene_name<-rownames(data1)
+data1<-reshape2::melt(data1,varnams=c("Gene_name"),value.name="gene")
+colnames(data1)<-c("gene","sample","Score")
+data1$Score<-log2(data1$Score+0.01)
+select_fpkm_matrix<-merge(data1,phenotype_matrix,by="sample")
+
+
+select_fpkm_matrix$gene<-factor(select_fpkm_matrix$gene,levels = c("PGF","HIF1A",
+                                                                   "BNIP3","ADM","LDHA"))
+select_fpkm_matrix$Type<-factor(select_fpkm_matrix$Type,levels = c("Normoxia","Hypoxia","Re-Oxygen"))
+
+box_p42<-ggplot(data=select_fpkm_matrix,aes(x=Type,y=Score,fill=Type))+
+  #geom_jitter()+
+  geom_boxplot(alpha=0.5)+
+  scale_fill_manual(values = c("#336699", "#993399","#003399"))+
+  ggtitle("Expression in pericytes (Hypoxia vs. Normoxia)")+
+  stat_compare_means(method = "t.test",label = "p.signif",label.y.npc = 0.95,
+                     comparisons = list(c("Normoxia","Hypoxia"),c("Hypoxia","Re-Oxygen")))+
+  theme_classic()+
+  ylab("log2(Expression+0.01)")+
+  theme(plot.title = element_text(size = 12,hjust = 0.5),
+        axis.title.x = element_blank(),
+        axis.title.y = element_text(size = 10),
+        strip.background = element_blank(),
+        axis.text.x = element_text(size = 10,angle = 45,vjust = 1,hjust = 1),
+        axis.text.y = element_text(size = 10),
+        legend.title = element_text(size = 10),
+        legend.position = "top",
+        legend.text = element_text(size = 10))+
+  facet_wrap(~gene,scale="free_y",ncol=6)
+box_p42
+
+
+total_p1_left<-trade_p1+(trade_p4/trade_p5)+(trade_p6/trade_p7)+plot_layout(ncol=3,widths = c(2,1,1))
+total_p1<-ggarrange(total_p1_left,Vln_exp1,ncol = 2,widths = c(1.5,1))
+total_p2<-box_p41+box_p42+plot_layout(ncol=2,widths = c(1,6))
+total_p3<-box_p1+box_p3+plot_layout(ncol=2,widths = c(1,6))
+total_p<-ggarrange(total_p1,total_p2,total_p3,ncol = 1,nrow = 3,heights = c(3,3.5,3))
+pdf("14.Figure/4.Figure_4_S11_imPChypoxia.pdf",width = 12,height = 9.5)
 print(total_p)
 dev.off()
-
